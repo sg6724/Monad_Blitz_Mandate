@@ -1,0 +1,11 @@
+.venv/
+node_modules/
+.env*
+!.env.example
+.next/
+out/
+cache/
+broadcast/*/31337/
+.vercel
+.DS_Store
+secrets/
