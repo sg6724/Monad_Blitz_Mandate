@@ -9,3 +9,4 @@ broadcast/*/31337/
 .vercel
 .DS_Store
 secrets/
+.tmp/
