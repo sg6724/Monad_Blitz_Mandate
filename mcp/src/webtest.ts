@@ -1,7 +1,7 @@
 // E2E against the local web API: plan -> owner locks (test key, stands in for MetaMask) -> agent run -> close.
 import { privateKeyToAccount } from 'viem/accounts';
 import { draftId, findByDraft, mandateArgs, publicClientFor, vaultWrite, walletClientFor, getMandate, mon } from '@taskpay/sdk';
-const BASE = 'http://localhost:3000';
+const BASE = process.env.BASE ?? 'http://localhost:3000';
 const post = (p: string, b: unknown) => fetch(BASE + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
 const pc = publicClientFor();
 const owner = walletClientFor(privateKeyToAccount(process.env.OWNER as `0x${string}`));
