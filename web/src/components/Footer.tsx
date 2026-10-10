@@ -1,13 +1,18 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ArrowRight } from './Icons';
 
 const COLS = [
   { title: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Best Sellers', '/shop'], ['Accessories', '/shop']] },
   { title: 'Brand', links: [['About Us', '/#journal'], ['Lookbook', '/#lookbook'], ['Journal', '/#journal'], ['TaskPay', '/agent']] },
-  { title: 'Customer Care', links: [['Shipping & Returns', '/#'], ['Your Tasks', '/tasks'], ['FAQ', '/agent'], ['Contact Us', '/#']] },
+  { title: 'Customer Care', links: [['Shipping & Returns', '/#'], ['Your Tasks', '/agent'], ['FAQ', '/agent'], ['Contact Us', '/#']] },
 ];
 
 export function Footer() {
+  const path = usePathname();
+  if (path.startsWith('/agent')) return null;
   return (
     <footer className="bg-[var(--color-mist)]">
       <div className="mx-auto grid max-w-[1280px] gap-10 px-6 py-16 md:grid-cols-[1.4fr_1fr_1fr_1fr_1.5fr] md:px-10">

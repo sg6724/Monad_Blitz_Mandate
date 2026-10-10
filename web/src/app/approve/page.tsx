@@ -52,7 +52,7 @@ export default function ApprovePage() {
               done ? (
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-semibold">Locked as task #{done}. Your agent will continue.</span>
-                  <Link className="btn" href={`/mandate/${done}`}>
+                  <Link className="btn" href={`/agent?id=${done}`}>
                     View task
                   </Link>
                 </div>

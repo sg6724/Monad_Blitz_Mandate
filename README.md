@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Live app** | https://blockmart-taskpay.vercel.app |
+| **Live app** | https://taskpay.jainamoswal.xyz |
 | **Network** | Monad testnet (chain id `10143`) |
 | **TaskPayVault** | [`0xA6694FE815Ab96139519feAA0861aCDC07d8E462`](https://testnet.monadscan.com/address/0xA6694FE815Ab96139519feAA0861aCDC07d8E462) (verified on [Monadscan](https://testnet.monadscan.com/address/0xA6694FE815Ab96139519feAA0861aCDC07d8E462) and [MonadVision](https://testnet.monadvision.com/address/0xA6694FE815Ab96139519feAA0861aCDC07d8E462)) |
 | **ERC-8004** | Identity `0x8004A818BFB912233c491871b3d84c89A494BD9e`, Reputation `0x8004B663056A597Dffe9eCcC1965A193B7388713` (official testnet registries). Our web agent is agent **#2100**. |
@@ -42,7 +42,7 @@ The AI layers catch what looks wrong. The contract enforces what is allowed, eve
 
 ## Try it (2 minutes, no setup)
 
-1. Open the [live app](https://blockmart-taskpay.vercel.app) and connect **MetaMask**. The app adds or switches to Monad testnet.
+1. Open the [live app](https://taskpay.jainamoswal.xyz) and connect **MetaMask**. The app adds or switches to Monad testnet.
 2. Open the wallet menu (person icon). Click **Get test MON**, or **Buy MON with card** through Transak test mode: card `4242 4242 4242 4242`, `10/33`, CVV `100`, 3DS password `Checkout1!`, UK address.
 3. Go to **AI Shopper** and type *"Buy the Utility Hoodie, max 1.3 MON"*. Confirm **Lock 1.3 MON** in MetaMask.
 4. Watch the timeline: price checks, the payment, and the refund, each with a Monadscan link.
@@ -55,7 +55,7 @@ The AI layers catch what looks wrong. The contract enforces what is allowed, eve
 
 ```bash
 git clone https://github.com/sg6724/Monad_Blitz_Mandate && cd Monad_Blitz_Mandate && npm install
-claude mcp add taskpay -e TASKPAY_WEB_URL=https://blockmart-taskpay.vercel.app -- npx tsx "$PWD/mcp/src/index.ts"
+claude mcp add taskpay -e TASKPAY_WEB_URL=https://taskpay.jainamoswal.xyz -- npx tsx "$PWD/mcp/src/index.ts"
 ```
 
 Then ask Claude: *"Use TaskPay to buy me a cap from BlockMart under 0.6 MON."*
@@ -79,7 +79,7 @@ cd contracts && forge test           # 16 tests
 
 `web/.env.local` needs: `AGENT_PRIVATE_KEY`, `AGENT_ID`, `OPS_PRIVATE_KEY` (faucet, Transak credits, keeper), `KEEPER_SECRET`, `GEMINI_API_KEY`, `TRANSAK_API_KEY`, `TRANSAK_API_SECRET`, `NEXT_PUBLIC_STORE_PAYTO`, `NEXT_PUBLIC_PRICECHECK_PAYTO`, `NEXT_PUBLIC_AGENT_ADDRESS`.
 
-To refund expired tasks automatically, run the keeper: `KEEPER_URL=https://blockmart-taskpay.vercel.app KEEPER_SECRET=… scripts/keeper-loop.sh`, or point a cron at `/api/keeper?key=…`.
+To refund expired tasks automatically, run the keeper: `KEEPER_URL=https://taskpay.jainamoswal.xyz KEEPER_SECRET=… scripts/keeper-loop.sh`, or point a cron at `/api/keeper?key=…`.
 
 ## Repo layout
 

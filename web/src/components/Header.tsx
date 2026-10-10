@@ -2,27 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import { useAccount } from 'wagmi';
-import { BagIcon, SearchIcon, UserIcon } from './Icons';
-import { WalletPanel } from './WalletPanel';
+import { SearchIcon } from './Icons';
+import { WalletButton } from './WalletPanel';
 
 const NAV = [
   { href: '/shop', label: 'Shop' },
   { href: '/#lookbook', label: 'Lookbook' },
   { href: '/agent', label: 'AI Shopper', accent: true },
-  { href: '/tasks', label: 'Tasks' },
   { href: '/#journal', label: 'Journal' },
 ];
 
 export function Header() {
   const path = usePathname();
-  const { address } = useAccount();
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-[78px] max-w-[1280px] items-center justify-between px-6 md:px-10">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
+        <div className={`mx-auto flex h-[78px] items-center justify-between px-6 md:px-10 ${path.startsWith('/agent') ? 'max-w-none' : 'max-w-[1280px]'}`}>
           <Link href="/" className="font-[family-name:var(--font-archivo)] text-[22px] font-black tracking-tight">
             BLOCKMART
           </Link>
@@ -44,21 +38,13 @@ export function Header() {
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-5">
-            <Link href="/shop" aria-label="Search">
+          <div className="flex items-center gap-4">
+            <Link href="/shop" aria-label="Search" className="hidden sm:block">
               <SearchIcon className="h-[22px] w-[22px]" />
             </Link>
-            <button aria-label="Wallet" onClick={() => setOpen(true)} className="relative">
-              <UserIcon className="h-[22px] w-[22px]" />
-              {address && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--color-ok)]" />}
-            </button>
-            <Link href="/tasks" aria-label="Tasks">
-              <BagIcon className="h-[22px] w-[22px]" />
-            </Link>
+            <WalletButton />
           </div>
         </div>
       </header>
-      <WalletPanel open={open} onClose={() => setOpen(false)} />
-    </>
   );
 }

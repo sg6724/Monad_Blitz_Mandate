@@ -35,7 +35,7 @@ export function HeroSlider() {
           <Link href={i === 0 ? '/shop' : '/agent'} className="btn">
             {i === 0 ? 'Shop now' : 'Try the AI shopper'}
           </Link>
-          <Link href={i === 0 ? '/#lookbook' : '/tasks'} className="label inline-flex items-center gap-3 text-[13px]">
+          <Link href={i === 0 ? '/#lookbook' : '/agent'} className="label inline-flex items-center gap-3 text-[13px]">
             {i === 0 ? 'View lookbook' : 'See your tasks'}
             <ArrowRight className="h-4 w-4" />
           </Link>

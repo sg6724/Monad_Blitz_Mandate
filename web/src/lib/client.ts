@@ -109,3 +109,31 @@ export function useOwnerActions() {
     unfreeze: (id: bigint) => send('unfreeze', 'unfreezeMandate', [id]),
   };
 }
+
+// ------------------------------------------------------------ chat history per task
+
+export type ChatMsg = {
+  role: 'user' | 'agent' | 'log';
+  text: string;
+  tone?: 'ok' | 'bad' | 'warn' | 'guard';
+  at?: number;
+  kind?: LocalStep['kind'];
+  txHash?: string;
+  source?: 'chain';
+};
+
+export function saveChat(id: string, msgs: ChatMsg[]) {
+  try {
+    localStorage.setItem(`taskpay:chat:${id}`, JSON.stringify(msgs.slice(-200)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readChat(id: string): ChatMsg[] | null {
+  try {
+    return JSON.parse(localStorage.getItem(`taskpay:chat:${id}`) ?? 'null');
+  } catch {
+    return null;
+  }
+}

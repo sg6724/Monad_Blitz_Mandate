@@ -50,7 +50,8 @@ export function explorerAddress(addr: string, chainId: ChainId = DEFAULT_CHAIN_I
 }
 
 export function publicClientFor(chainId: ChainId = DEFAULT_CHAIN_ID, rpc?: string): PublicClient {
-  return createPublicClient({ chain: chainFor(chainId), transport: http(rpc ?? addressesFor(chainId).rpc) }) as PublicClient;
+  // Reads made in the same tick are batched into one multicall, which keeps us under the public RPC rate limit.
+  return createPublicClient({ chain: chainFor(chainId), batch: { multicall: { wait: 16 } }, transport: http(rpc ?? addressesFor(chainId).rpc, { retryCount: 3, retryDelay: 400 }) }) as PublicClient;
 }
 
 export function walletClientFor(account: Account, chainId: ChainId = DEFAULT_CHAIN_ID, rpc?: string): WalletClient {
