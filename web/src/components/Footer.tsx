@@ -52,7 +52,7 @@ export function Footer() {
         </div>
       </div>
       <div className="mx-auto max-w-[1280px] px-6 pb-8 text-[11px] text-neutral-500 md:px-10">
-        Demo store on Monad testnet. Payments are made in testnet MON through TaskPay.
+        Demo store on Monad testnet. Payments are made in testnet MON through TaskPay. ₹ prices use a demo rate of ₹2,000 per MON (testnet MON has no real value).
       </div>
     </footer>
   );

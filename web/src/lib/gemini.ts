@@ -36,7 +36,7 @@ export async function extractTask(conversation: string): Promise<Extracted | nul
   return json<Extracted>(
     `You turn a shopping request into a TaskPay mandate. The only store is BlockMart, which sells: ${catalog}.
 From the conversation, return:
-- item: the exact catalogue product name the user wants, or null if unclear
+- item: the exact catalogue product name the user wants. Use null if unclear OR if the request fits several products (e.g. "groceries", "a gift", "something warm") so we can ask which one. One task buys one product.
 - budget: the max spend in MON as a plain number string if the user gave one (e.g. "1.3"), else null. Never invent a budget.
 - store: "BlockMart" if the user named it or if an item is chosen, else null
 - reply: one short friendly sentence acknowledging what you understood.

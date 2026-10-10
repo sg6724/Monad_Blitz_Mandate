@@ -10,7 +10,7 @@ import { CHAIN } from './wagmi';
 export const VAULT = addressesFor(10143).vault as Address;
 export const STORE_PAYTO = (process.env.NEXT_PUBLIC_STORE_PAYTO ?? '0x27dd67D92c1754D3F30b9D7965D8Cf6cf2B3D0be').toLowerCase();
 export const PRICECHECK_PAYTO = (process.env.NEXT_PUBLIC_PRICECHECK_PAYTO ?? '0x1344fb00634e7141e8Ed551aB00893b710245bce').toLowerCase();
-export const NAMES: Record<string, string> = { [STORE_PAYTO]: 'BlockMart', [PRICECHECK_PAYTO]: 'PriceCheck API' };
+export const NAMES: Record<string, string> = { [STORE_PAYTO]: 'BlockMart', [PRICECHECK_PAYTO]: 'PriceCheck (price comparison)' };
 
 // ------------------------------------------------------------ local step log
 

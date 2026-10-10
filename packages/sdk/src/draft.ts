@@ -84,7 +84,7 @@ function round(n: number) {
 }
 
 function fmt(n: number) {
-  return n.toFixed(2).replace(/\.?0+$/, '');
+  return (n < 0.1 ? n.toFixed(3) : n.toFixed(2)).replace(/\.?0+$/, '');
 }
 
 export function isReady(d: Partial<Draft>): d is Draft {

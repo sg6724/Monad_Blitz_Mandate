@@ -187,7 +187,8 @@ function AgentInner() {
   const [mandateId, setMandateId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [compromised, setCompromised] = useState(false);
-  const [surge, setSurge] = useState(false);
+  // Surge pricing is a hidden demo switch: add ?surge=1 to the URL.
+  const [surge] = useState(() => params.get('surge') === '1');
   const [fromChain, setFromChain] = useState(false);
   const [, force] = useState(0);
   const { data } = useMandate(mandateId ? BigInt(mandateId) : undefined);
@@ -364,11 +365,7 @@ function AgentInner() {
             <TaskList selected={mandateId} onSelect={openTask} onNew={reset} />
           </div>
           <div className="space-y-2.5 border-t border-[var(--color-fog)] p-4">
-            <div className="label text-neutral-500">Demo switches</div>
-            <label className="flex cursor-pointer items-center justify-between gap-2 text-[12px]">
-              <span>Surge pricing (+15%)</span>
-              <input type="checkbox" className="accent-black" checked={surge} onChange={(e) => setSurge(e.target.checked)} />
-            </label>
+            <div className="label text-neutral-500">Demo switch</div>
             <label className="flex cursor-pointer items-center justify-between gap-2 text-[12px]">
               <span className="text-[var(--color-bad)]">Compromised agent</span>
               <input type="checkbox" className="accent-black" checked={compromised} onChange={(e) => setCompromised(e.target.checked)} />
@@ -518,9 +515,6 @@ function AgentInner() {
           )}
 
           <div className="space-y-2 border-t border-[var(--color-fog)] pt-4 lg:hidden">
-            <label className="flex items-center justify-between text-[12px]">
-              Surge pricing (+15%) <input type="checkbox" checked={surge} onChange={(e) => setSurge(e.target.checked)} />
-            </label>
             <label className="flex items-center justify-between text-[12px] text-[var(--color-bad)]">
               Compromised agent <input type="checkbox" checked={compromised} onChange={(e) => setCompromised(e.target.checked)} />
             </label>

@@ -109,6 +109,16 @@ export function BuyWithCard({ address, onDone }: { address: string; onDone: () =
     }
   }
 
+  /** Starts a brand-new Transak checkout (new session) and shows it, e.g. when the old one is stuck on a KYC step. */
+  function startOver() {
+    setSession(null);
+    setLoaded(false);
+    orderRef.current = null;
+    setMsg(null);
+    setVisible(true);
+    load(true);
+  }
+
   /** Throws away the current checkout (it can't be reopened) and prepares the next one. */
   function discard() {
     setVisible(false);
@@ -185,7 +195,10 @@ export function BuyWithCard({ address, onDone }: { address: string; onDone: () =
             Card <b>4242 4242 4242 4242</b>, expiry 10/33, CVV 100. If a bank page asks for a password, type <b>Checkout1!</b>
           </li>
         </ol>
-        <p>Asked for an ID photo or selfie? Close it and start again with a new email, e.g. you+seamless2@gmail.com.</p>
+        <p>
+          Stuck on an ID photo or selfie step? Test mode always approves, so any photo works. Or press <b>Start over</b> and use a new email (you+seamless2@gmail.com). If Transak
+          signs you back in automatically, log out from its menu (☰) first. Its progress is saved per email, not in this site.
+        </p>
       </div>
       {msg && <p className={`text-[12px] ${phase === 'error' ? 'text-[var(--color-bad)]' : 'text-neutral-700'}`}>{msg}</p>}
       {(phase === 'error' || visible) && (
@@ -206,9 +219,14 @@ export function BuyWithCard({ address, onDone }: { address: string; onDone: () =
             className={`fixed inset-0 z-[60] flex items-center justify-center p-4 transition-opacity duration-150 ${visible ? 'bg-black/60 opacity-100' : 'pointer-events-none opacity-0'}`}
           >
             <div className="relative h-[88dvh] w-full max-w-[460px] overflow-hidden bg-white">
-              <button className="label absolute right-3 top-3 z-20 bg-white px-2 py-1" onClick={() => setVisible(false)}>
-                Close
-              </button>
+              <div className="absolute right-3 top-3 z-20 flex gap-1.5">
+                <button className="label bg-white px-2 py-1" title="Open a fresh Transak checkout" onClick={startOver}>
+                  Start over
+                </button>
+                <button className="label bg-white px-2 py-1" onClick={() => setVisible(false)}>
+                  Close
+                </button>
+              </div>
               {(!session || !loaded) && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white text-[12px] text-neutral-500">
                   <span className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-black" />

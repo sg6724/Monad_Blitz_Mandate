@@ -4,7 +4,8 @@ import type { Product } from '@taskpay/sdk';
 import { Inr } from './Inr';
 
 export function price(n: number) {
-  return `${n.toFixed(2)} MON`;
+  // Two decimals for most prices, three for cheap groceries (0.034 MON, not 0.03).
+  return `${n < 0.1 ? Number(n.toFixed(3)) : n.toFixed(2)} MON`;
 }
 
 export function ProductCard({ p, size = 'lg' }: { p: Product; size?: 'lg' | 'sm' }) {

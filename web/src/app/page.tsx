@@ -7,7 +7,7 @@ import { ArrowRight, DropIcon, FitIcon, PocketIcon } from '@/components/Icons';
 
 export default function Home() {
   const featured = ['utility-hoodie', 'oversized-tshirt', 'cargo-pants', 'tech-cap'].map((id) => productById(id)!);
-  const more = ['cargo-pants', 'oversized-tshirt', 'bucket-hat', 'shoulder-bag'].map((id) => productById(id)!);
+  const more = ['wireless-earbuds', 'coffee-beans', 'ceramic-mug', 'organic-milk'].map((id) => productById(id)!);
   const hoodie = productById('utility-hoodie')!;
   return (
     <>

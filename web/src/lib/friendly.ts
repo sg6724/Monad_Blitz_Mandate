@@ -27,7 +27,9 @@ export function friendly(text: string, kind?: string): Friendly | null {
   if (/^Compromised mode/.test(text)) return { icon: '🎭', text: 'Demo: the agent was tricked and tried to send your money to an unknown address', tone: 'bad' };
   if (/blocked it on-chain/i.test(text)) return { icon: '🛡️', text: 'Stopped a payment to an unknown address. It isn’t the shop for this task. Your money is safe.', tone: 'safe' };
   if ((m = text.match(/^Paid ([\d.]+) MON for price check/))) return { icon: '🏷️', text: 'Checked prices', group: 'pricecheck', amount: Number(m[1]) };
+  if ((m = text.match(/^Paid PriceCheck ([\d.]+) MON to ask for (.+?): (.+?) ·/))) return { icon: '🏷️', text: `Paid PriceCheck ${m[1]} MON to look up ${m[2]}: ${m[3]}`, amount: Number(m[1]) };
   if ((m = text.match(/^Price checks done: (.+) at BlockMart is the best price/))) return { icon: '✅', text: `Best price for the ${m[1]}: BlockMart` };
+  if ((m = text.match(/^Price check result: (.+)/))) return { icon: '📊', text: m[1], tone: /above/.test(m[1]) ? 'warn' : undefined };
   if ((m = text.match(/^BlockMart quoted ([\d.]+) MON for (.+?) \(order/))) return { icon: '🧾', text: `BlockMart’s price: ${m[1]} MON${/surge/.test(text) ? ' (went up 15% just now)' : ''}` };
   if ((m = text.match(/only ([\d.]+ MON) is left in this task\. Asked you for \+([\d.]+ MON)/))) return { icon: '✋', text: `The price is more than what’s left (${m[1]}). Asked you to add ${m[2]}.`, tone: 'warn' };
   if ((m = text.match(/^Waiting for you to approve the top-up of (.+)\./))) return { icon: '✋', text: `Waiting for you to add ${m[1]}`, tone: 'warn' };

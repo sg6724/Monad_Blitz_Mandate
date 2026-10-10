@@ -41,7 +41,10 @@ export type PlanResult = { reply: string; questions: Question[]; partial: Partia
 function heuristicExtract(text: string) {
   const budget = text.match(/(\d+(?:\.\d+)?)\s*(?:mon)?\b/i)?.[1] ?? null;
   const hits = findProducts(text);
-  const item = hits.length < CATALOG.length ? hits[0].name : null;
+  const words = text.toLowerCase().match(/[a-z]{3,}/g) ?? [];
+  // Only pick an item when the request names it; a category ("groceries", "a hat") gets a follow-up question.
+  const named = hits.find((p) => words.some((w) => p.name.toLowerCase().split(/[^a-z]+/).includes(w.replace(/s$/, '')) || p.name.toLowerCase().split(/[^a-z]+/).includes(w)));
+  const item = hits.length === 1 && hits.length < CATALOG.length ? hits[0].name : named ? named.name : null;
   return { item, budget, store: /store/i.test(text) || item ? 'BlockMart' : null };
 }
 
@@ -58,7 +61,8 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   if (product && item) p.item = product.name;
   const budget = (input.answers?.budget ?? p.budget ?? (g ? g.budget : h.budget) ?? undefined)?.replace(/\s*mon\s*$/i, '');
   if (budget && !Number.isNaN(Number(budget)) && Number(budget) > 0) p.budget = String(Number(budget));
-  if ((input.answers?.store ?? g?.store ?? h.store ?? p.store) || p.item) p.store = { name: 'BlockMart', payTo: STORE_PAYTO, domain: 'blockmart' };
+  // BlockMart is the only store here, so there's nothing to ask about it.
+  p.store = { name: 'BlockMart', payTo: STORE_PAYTO, domain: 'blockmart' };
 
   p.v = 1;
   p.chainId = CHAIN_ID;
@@ -66,7 +70,7 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   p.agent = agentWallet().account!.address;
   p.agentId = AGENT_ID;
   p.nonce = p.nonce ?? newNonce();
-  p.extraPayees = [{ name: 'PriceCheck API', payTo: PRICECHECK_PAYTO }];
+  p.extraPayees = [{ name: 'PriceCheck (price comparison, 0.001 MON per check)', payTo: PRICECHECK_PAYTO }];
 
   const items = (p.item ? findProducts(p.item) : findProducts(userText)).map((x) => ({ name: x.name, price: x.price }));
   const questions = missingFields(p, { stores: [{ name: 'BlockMart', domain: 'blockmart', category: 'apparel', payTo: STORE_PAYTO }], items });
@@ -83,7 +87,7 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   p.perPaymentCap = String(Math.min(budgetN, Math.round(cap * 1000) / 1000));
   p.expiryMins = p.expiryMins ?? 60;
   return {
-    reply: `Here's the task card. Lock ${p.budget} MON and I'll only be able to pay BlockMart (and the price-check API), for at most ${p.perPaymentCap} MON per payment, within the next hour.`,
+    reply: `Here's the task card. Lock ${p.budget} MON and I'll only be able to pay BlockMart, plus PriceCheck (0.001 MON per price lookup, so I don't overpay), for at most ${p.perPaymentCap} MON per payment, within the next hour.`,
     questions: [],
     partial: p,
     draft: p as Draft,
@@ -101,6 +105,8 @@ export type RunInput = {
   surge?: boolean;
   phase: 'shop' | 'resume' | 'close';
   logHash?: Hex;
+  /** This site's own URL, so the agent can call the PriceCheck API over HTTP. */
+  baseUrl?: string;
 };
 
 export type RunResult = {
@@ -155,15 +161,36 @@ export async function run(input: RunInput): Promise<RunResult> {
       events.push(ev('tx', `⛓ Vault blocked it on-chain: ${reason === 'NONE' ? 'MERCHANT_NOT_ALLOWED' : reason}. No MON moved.`, { txHash: tx.hash, data: { blocked: true } }));
     }
 
-    // Pay-per-call: three price checks, 0.001 MON each, paid from the same mandate.
+    // Pay-per-call: before buying, the agent asks PriceCheck (a separate price-comparison API) three questions.
+    // Each answer costs 0.001 MON, paid from this task's budget through the vault, then shown to PriceCheck as proof.
     if (m.payees.some((a) => a.toLowerCase() === PRICECHECK_PAYTO.toLowerCase())) {
-      let total = 0;
-      for (let i = 1; i <= 3; i++) {
-        const tx = await vaultWrite(wc, pc, 'pay', [id, PRICECHECK_PAYTO, parseEther(PRICECHECK_FEE), ref32(`pricecheck-${i}`)], { chainId: CHAIN_ID });
-        total += tx.settleMs;
-        events.push(ev('tx', `Paid ${PRICECHECK_FEE} MON for price check #${i} (${['BlockMart', 'market avg', 'last 30 days'][i - 1]}) · settled in ${tx.settleMs} ms`, { txHash: tx.hash }));
+      const answers: Record<string, any> = {};
+      const asks: [string, string][] = [
+        ['blockmart', 'BlockMart’s live price'],
+        ['market', 'prices at 3 other shops'],
+        ['history', 'the 30-day price history'],
+      ];
+      for (const [i, [source, label]] of asks.entries()) {
+        const ref = `pricecheck-${i + 1}`;
+        const tx = await vaultWrite(wc, pc, 'pay', [id, PRICECHECK_PAYTO, parseEther(PRICECHECK_FEE), ref32(ref)], { chainId: CHAIN_ID });
+        let a: any = null;
+        if (input.baseUrl) {
+          const q = new URLSearchParams({ item: product.name, source, mandate: id.toString(), ref, paid_tx: tx.hash, ...(input.surge ? { surge: '1' } : {}) });
+          a = await fetch(`${input.baseUrl}/api/pricecheck?${q}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        }
+        answers[source] = a;
+        const found = !a ? 'no answer' : source === 'blockmart' ? `${a.price} MON` : source === 'market' ? `avg ${a.average} MON` : `30-day low ${a.low30d} MON`;
+        events.push(ev('tx', `Paid PriceCheck ${PRICECHECK_FEE} MON to ask for ${label}: ${found} · settled in ${tx.settleMs} ms`, { txHash: tx.hash, data: { source, answer: a } }));
       }
-      events.push(ev('note', `Price checks done: ${product.name} at BlockMart is the best price (avg ${Math.round(total / 3)} ms per micro-payment).`));
+      const bm = answers.blockmart?.price, avg = answers.market?.average;
+      if (bm && avg) {
+        const diff = Math.round(((avg - bm) / avg) * 100);
+        events.push(
+          ev('note', diff >= 0
+            ? `Price check result: BlockMart ${bm} MON is ${diff}% below the market average (${avg} MON). Good deal.`
+            : `Price check result: BlockMart ${bm} MON is ${-diff}% above the market average (${avg} MON) right now. It's still the only shop you allowed.`),
+        );
+      }
     }
   }
 

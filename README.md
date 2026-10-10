@@ -4,7 +4,7 @@ TaskPay lets you give an AI agent a budget for one task instead of access to you
 
 You describe a task ("buy the Utility Hoodie, max 1.3 MON") and lock that amount in a smart contract on Monad. The agent can ask the contract to pay, but the contract only releases money to merchants you approved, up to a per-payment cap, before a deadline. Whatever isn't spent comes back to you.
 
-BlockMart, a demo store in this repo, is the merchant the agent shops at.
+BlockMart, a demo store in this repo, is the merchant the agent shops at in the demo. TaskPay itself isn't tied to it: any agent (Claude Code, Claude in Chrome, or your own) can use it to pay any merchant or API that asks for payment in the x402 style (see [Works with any x402-style merchant](#works-with-any-x402-style-merchant)).
 
 - Live app: https://taskpay.jainamoswal.xyz
 - Network: Monad testnet (chain id 10143)
@@ -70,12 +70,22 @@ npx tsx mcp/src/cli.ts fund     # one-time: 1 test MON for that key's gas from t
 
 Run `claude` from the repo folder (add `-s user` to `claude mcp add` to use it from any folder), then ask: "Use TaskPay to buy me a cap from BlockMart under 0.6 MON."
 
-- Claude asks any follow-up questions, then sends you an approve link. You confirm it once in MetaMask.
+- If your request is vague (no item, store, budget or deadline), `request_mandate` returns the missing questions and Claude asks you before it creates the mandate. It only sends the approve link once the task is complete. You confirm it once in MetaMask.
 - Claude gets a quote, pays and closes the task. Unspent MON goes back to your wallet. Step logs are saved in `~/.taskpay/logs/`.
 - If TaskGuard holds a payment for review, or Claude asks for a top-up, you approve it on the task page (`/agent?id=<task>`) that Claude links to.
 - The agent key only pays gas (about 0.07 MON per task). Instead of `fund` you can send it testnet MON from any wallet.
 
 How MetaMask works with MCP: the MCP server never sees your wallet or keys and never holds your money. `request_mandate` encodes the task (item, store, pay-to address, budget, expiry, agent address) into an approve link, `https://taskpay.jainamoswal.xyz/approve#<draft>`. The draft sits in the URL fragment, so it never reaches a server. You open the link, connect MetaMask on Monad testnet, check the card and press Lock. That one transaction moves the budget into the TaskPay vault, and `wait_for_approval` sees it (`findByDraft`). From then on the agent can only ask the vault to pay that merchant, up to that budget, until the expiry. On the task page you can close the task or freeze the agent at any time.
+
+### Works with any x402-style merchant
+
+The MCP tools are not specific to BlockMart. The agent can use TaskPay from Claude Code or from the Claude in Chrome extension (Chrome can open the approve link and any merchant page while the MCP does the paying), and it can pay anything that follows the same handshake:
+
+1. The merchant publishes its identity (name, domain, pay-to address) at `/.well-known/taskpay.json`. Add extra merchants with `TASKPAY_STORES=https://shop-a.com,https://shop-b.com`.
+2. For a purchase or API call, the merchant answers with an x402-style quote or `402 Payment Required`: order id, amount, pay-to address.
+3. You approve that merchant in the mandate, and the vault will pay only that address, up to your budget. The same flow already covers the PriceCheck API, which charges 0.001 MON per call.
+
+Limit today: payments go from the vault straight to the merchant on Monad. Merchants that require a facilitator-signed x402 `X-PAYMENT` header (for example the Coinbase facilitator) aren't supported yet. The plan for that is in [docs/PRD-TaskPay.md](docs/PRD-TaskPay.md).
 
 Tools: `browse_store`, `request_mandate`, `wait_for_approval`, `get_quote`, `pay`, `request_topup`, `get_mandate`, `close_mandate`, `list_mandates`.
 

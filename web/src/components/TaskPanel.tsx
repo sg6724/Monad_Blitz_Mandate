@@ -49,7 +49,7 @@ export function TaskPanel({ m, entries, steps, busy, onAction }: { m: Mandate; e
     {
       label: 'Comparing prices',
       state: st({ done: checks.length > 0 || itemPaid > 0n, running: open && busy, stopped: !open && checks.length === 0 }),
-      line: checks.length ? `Checked ${checks.length} places · ${fmt(checksPaid)} in small fees` : open ? 'Checking a few places for the best price…' : 'Skipped',
+      line: checks.length ? `Asked PriceCheck ${checks.length} questions · ${fmt(checksPaid)} in pay-per-check fees` : open ? 'Asking PriceCheck if this is a fair price…' : 'Skipped',
     },
     {
       label: 'Buying',
@@ -189,7 +189,7 @@ export function TaskPanel({ m, entries, steps, busy, onAction }: { m: Mandate; e
           {[
             ['Budget set aside', m.budget, ''],
             [item, itemPaid, '−'],
-            [`Price checks (${checks.length})`, checksPaid, '−'],
+            [`PriceCheck lookups (${checks.length} × 0.001)`, checksPaid, '−'],
             ['TaskPay fee (0.5%)', fees, '−'],
           ]
             .filter(([, v]) => (v as bigint) > 0n)
@@ -202,6 +202,16 @@ export function TaskPanel({ m, entries, steps, busy, onAction }: { m: Mandate; e
                 </span>
               </div>
             ))}
+          {checks.length > 0 && (
+            <details className="mt-1 text-[11.5px] text-neutral-500">
+              <summary className="cursor-pointer select-none">What’s PriceCheck?</summary>
+              <p className="mt-1 leading-relaxed">
+                A separate price-comparison service that charges per question instead of a subscription. Before buying, the agent asks it for BlockMart’s live price, what 3 other
+                shops charge and the 30-day price history, so it doesn’t overpay. Each answer costs 0.001 MON, paid from this task’s budget, and the service checks that payment on
+                Monad before it replies. That only works because Monad payments cost almost nothing and settle instantly.
+              </p>
+            </details>
+          )}
           <div className="mt-2 flex justify-between border-t border-[var(--color-fog)] pt-2 font-bold">
             <span>Returned to you</span>
             <span className="tabular-nums">
