@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { CATALOG, short, type Draft } from '@taskpay/sdk';
 import { ShieldIcon } from './Icons';
+import { Inr } from './Inr';
 
 export function TaskCard({ draft, action }: { draft: Draft; action?: React.ReactNode }) {
   const product = CATALOG.find((p) => p.name === draft.item);
@@ -32,6 +33,7 @@ export function TaskCard({ draft, action }: { draft: Draft; action?: React.React
             <div>
               <div className="label text-neutral-500">Budget</div>
               <div className="display mt-0.5 text-[22px]">{draft.budget} MON</div>
+              <Inr mon={draft.budget ?? 0} className="text-[11px] text-neutral-500" />
             </div>
             <div>
               <div className="label text-neutral-500">Max per payment</div>

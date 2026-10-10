@@ -9,7 +9,7 @@ const NAV = [
   { href: '/shop', label: 'Shop' },
   { href: '/#lookbook', label: 'Lookbook' },
   { href: '/agent', label: 'AI Shopper', accent: true },
-  { href: '/#journal', label: 'Journal' },
+  { href: '/#how', label: 'How it works' },
 ];
 
 export function Header() {

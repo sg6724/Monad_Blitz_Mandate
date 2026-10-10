@@ -1,6 +1,7 @@
 import { promises as fs, existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { formatEther, keccak256, parseEther, toHex, type Address, type Hex } from 'viem';
 import {
@@ -42,7 +43,7 @@ import {
 
 export const HOME = process.env.TASKPAY_HOME ?? join(homedir(), '.taskpay');
 export const CHAIN_ID = Number(process.env.TASKPAY_CHAIN_ID ?? 10143) as ChainId;
-export const WEB_URL = (process.env.TASKPAY_WEB_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+export const WEB_URL = (process.env.TASKPAY_WEB_URL ?? 'https://taskpay.jainamoswal.xyz').replace(/\/$/, '');
 export const STORES = (process.env.TASKPAY_STORES ?? WEB_URL).split(',').map((s) => s.trim()).filter(Boolean);
 export const RPC = process.env.MONAD_RPC_URL;
 
@@ -108,7 +109,8 @@ export async function ensureAgent() {
   const bal = await pc.getBalance({ address: agentAccount.address });
   if (bal < parseEther('0.05')) {
     throw new Error(
-      `Agent key ${agentAccount.address} needs MON for fees (has ${formatEther(bal)}). Send it some testnet MON or use "Get test MON" at ${WEB_URL}.`,
+      `Agent key ${agentAccount.address} needs testnet MON for gas, roughly 0.07 MON per task (has ${formatEther(bal)}). It never holds task money. ` +
+        `Fund it with: npx tsx "${fileURLToPath(new URL('./cli.ts', import.meta.url))}" fund  (TaskPay test faucet), or send it testnet MON from any wallet.`,
     );
   }
   if (!agentFile.agentId) {
@@ -120,6 +122,25 @@ export async function ensureAgent() {
     }
   }
   return { address: agentAccount.address, agentId: agentFile.agentId, balance: bal };
+}
+
+/** Ask the TaskPay web faucet to send test MON to this agent key (only works while it holds < 1 MON). */
+export async function fundAgent() {
+  const res = await fetch(`${WEB_URL}/api/faucet`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address: agentAccount.address }),
+  });
+  const j = (await res.json().catch(() => ({}))) as { ok?: boolean; amount?: string; hash?: Hex; error?: string };
+  const bal = await pc.getBalance({ address: agentAccount.address });
+  return {
+    agent: agentAccount.address,
+    funded: !!j.ok,
+    amount: j.ok ? `${j.amount} MON` : undefined,
+    explorer: j.hash ? explorerTx(j.hash, CHAIN_ID) : undefined,
+    error: j.ok ? undefined : (j.error ?? `faucet returned ${res.status}`),
+    balance: `${formatEther(bal)} MON`,
+  };
 }
 
 // ---------------------------------------------------------------- stores
@@ -285,7 +306,7 @@ export async function mandateSummary(id: bigint) {
     pending_topup: m.pendingTopUp > 0n ? mon(m.pendingTopUp) : null,
     pending_approval: m.pendingPayment ? `${mon(m.pendingPayment.amount)} to ${m.pendingPayment.payee}` : null,
     timeline: lines.map((l) => `${new Date(l.at * 1000).toLocaleTimeString()} ${l.source === 'chain' ? '⛓' : '·'} ${l.text}`),
-    web: `${WEB_URL}/mandate/${id}`,
+    web: `${WEB_URL}/agent?id=${id}`,
   };
 }
 
@@ -321,7 +342,7 @@ export async function pay(input: { mandate_id: string; amount: string; pay_to: s
     if (risk.decision === 'step_up') {
       const tx = await vaultWrite(wc, pc, 'requestApproval', [id, payTo, amount, ref32(input.order_ref)], { chainId: CHAIN_ID });
       logStep(key, { kind: 'tx', text: `Asked the owner to confirm ${input.amount} MON to ${payTo}`, txHash: tx.hash });
-      return { paid: false, waiting_for_owner: true, risk, explorer: explorerTx(tx.hash, CHAIN_ID), web: `${WEB_URL}/mandate/${id}` };
+      return { paid: false, waiting_for_owner: true, risk, explorer: explorerTx(tx.hash, CHAIN_ID), web: `${WEB_URL}/agent?id=${id}` };
     }
   }
 
@@ -355,7 +376,7 @@ export async function requestTopUp(input: { mandate_id: string; amount: string; 
   const id = BigInt(input.mandate_id);
   const tx = await vaultWrite(wc, pc, 'requestTopUp', [id, parseEther(input.amount.replace(/\s*mon\s*$/i, '')), ref32(input.reason)], { chainId: CHAIN_ID });
   logStep(String(id), { kind: 'tx', text: `Asked for +${input.amount} MON: ${input.reason}`, txHash: tx.hash });
-  return { requested: true, explorer: explorerTx(tx.hash, CHAIN_ID), approve_at: `${WEB_URL}/mandate/${id}`, next: 'Wait for the owner, then check get_mandate.' };
+  return { requested: true, explorer: explorerTx(tx.hash, CHAIN_ID), approve_at: `${WEB_URL}/agent?id=${id}`, next: 'Wait for the owner, then check get_mandate.' };
 }
 
 export async function closeMandate(input: { mandate_id: string }) {

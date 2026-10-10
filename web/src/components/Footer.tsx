@@ -6,7 +6,7 @@ import { ArrowRight } from './Icons';
 
 const COLS = [
   { title: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Best Sellers', '/shop'], ['Accessories', '/shop']] },
-  { title: 'Brand', links: [['About Us', '/#journal'], ['Lookbook', '/#lookbook'], ['Journal', '/#journal'], ['TaskPay', '/agent']] },
+  { title: 'Brand', links: [['How it works', '/#how'], ['Lookbook', '/#lookbook'], ['New Arrivals', '/#new'], ['TaskPay', '/agent']] },
   { title: 'Customer Care', links: [['Shipping & Returns', '/#'], ['Your Tasks', '/agent'], ['FAQ', '/agent'], ['Contact Us', '/#']] },
 ];
 

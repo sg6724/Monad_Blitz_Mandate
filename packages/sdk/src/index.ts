@@ -6,3 +6,4 @@ export * from './guard';
 export * from './timeline';
 export * from './identity';
 export * from './catalog';
+export * from './proof';

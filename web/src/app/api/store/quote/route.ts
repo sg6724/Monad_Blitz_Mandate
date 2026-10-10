@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!p) return NextResponse.json({ error: 'unknown product' }, { status: 404 });
   const unit = surge ? Math.round(p.price * SURGE_MULTIPLIER * 1000) / 1000 : p.price;
   return NextResponse.json({
-    orderId: `NX-${Date.now().toString(36).toUpperCase()}`,
+    orderId: `BM-${Date.now().toString(36).toUpperCase()}`,
     productId,
     name: p.name,
     qty,

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@taskpay/sdk';
+import { Inr } from './Inr';
 
 export function price(n: number) {
   return `${n.toFixed(2)} MON`;
@@ -19,7 +20,9 @@ export function ProductCard({ p, size = 'lg' }: { p: Product; size?: 'lg' | 'sm'
         />
       </div>
       <div className="mt-4 label text-[12px]">{p.name}</div>
-      <div className="mt-1 text-[12px] text-neutral-700">{price(p.price)}</div>
+      <div className="mt-1 text-[12px] text-neutral-700">
+        {price(p.price)} <Inr mon={p.price} className="ml-1 text-neutral-400" />
+      </div>
       <div className="mt-2.5 flex gap-1.5">
         {p.colors.map((c) => (
           <span key={c} className="h-2.5 w-2.5 rounded-full border border-neutral-300" style={{ background: c }} />

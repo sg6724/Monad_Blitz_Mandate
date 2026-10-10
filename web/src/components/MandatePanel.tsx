@@ -3,6 +3,7 @@
 import { useAccount } from 'wagmi';
 import { explorerAddress, mon, short, type Mandate } from '@taskpay/sdk';
 import { stepsHash, useOwnerActions } from '@/lib/client';
+import { Inr } from './Inr';
 
 export function statusOf(m: Mandate) {
   if (m.status === 'Closed') return { label: 'Closed', cls: 'bg-neutral-200 text-neutral-700' };
@@ -37,8 +38,12 @@ export function MandatePanel({ m, onAction }: { m: Mandate; onAction?: (what: st
       </div>
       <div>
         <div className="flex justify-between text-[12px]">
-          <span>Spent {mon(m.spent)}</span>
-          <span className="font-semibold">Left {mon(m.remaining)}</span>
+          <span>
+            Spent {mon(m.spent)} <Inr mon={mon(m.spent)} />
+          </span>
+          <span className="font-semibold">
+            Left {mon(m.remaining)} <Inr mon={mon(m.remaining)} className="font-normal text-neutral-500" />
+          </span>
         </div>
         <div className="mt-2 h-2 w-full bg-[var(--color-fog)]">
           <div className="h-2 bg-black transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
@@ -52,7 +57,10 @@ export function MandatePanel({ m, onAction }: { m: Mandate; onAction?: (what: st
       {open && m.pendingTopUp > 0n && (
         <div className="rise border border-[var(--color-warn)] bg-amber-50 p-4">
           <div className="label text-[var(--color-warn)]">Agent asks for more</div>
-          <p className="mt-1 text-[13px]">The price went up. The agent wants +{mon(m.pendingTopUp)} to finish this task.</p>
+          <p className="mt-1 text-[13px]">
+            The price is now higher than what&apos;s left. This task has {mon(m.remaining)} left (after price checks), and the purchase needs about{' '}
+            {mon(m.remaining + m.pendingTopUp)} including the 0.5% TaskPay fee. The agent wants +{mon(m.pendingTopUp)} to finish. Only you can add it.
+          </p>
           {isOwner && (
             <div className="mt-3 flex gap-2">
               <button className="btn" disabled={!!a.pending} onClick={() => run('topup', a.approveTopUp(m.id, m.pendingTopUp))}>

@@ -162,7 +162,8 @@ export async function getMandate(pc: PublicClient, id: bigint, chainId: ChainId 
     budget: mm.budget,
     originalBudget: mm.originalBudget,
     spent: mm.spent,
-    remaining: (mm.budget as bigint) - (mm.spent as bigint),
+    // Once a task is closed the unspent MON has been returned, so nothing is left in it.
+    remaining: STATUSES[Number(mm.status)] === 'Open' ? (mm.budget as bigint) - (mm.spent as bigint) : 0n,
     perPaymentCap: mm.perPaymentCap,
     toppedUp: mm.toppedUp,
     pendingTopUp: mm.pendingTopUp,

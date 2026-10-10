@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CATALOG, productById } from '@taskpay/sdk';
 import { price } from '@/components/ProductCard';
+import { Inr } from '@/components/Inr';
 import { ShieldIcon } from '@/components/Icons';
 
 export function generateStaticParams() {
@@ -23,7 +24,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           ← Shop
         </Link>
         <h1 className="display mt-6 text-[52px]">{p.name}</h1>
-        <div className="mt-4 text-[15px] font-semibold">{price(p.price)}</div>
+        <div className="mt-4 text-[15px] font-semibold">
+          {price(p.price)} <Inr mon={p.price} className="ml-1 text-[13px] font-normal text-neutral-500" />
+        </div>
         <p className="mt-6 max-w-[420px] text-[14px] leading-relaxed">{p.blurb}</p>
         <div className="mt-6 flex gap-2">
           {p.colors.map((c) => (

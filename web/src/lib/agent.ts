@@ -185,7 +185,7 @@ export async function run(input: RunInput): Promise<RunResult> {
       return { events, outcome: 'need_topup', remaining: mon(fresh.remaining) };
     }
     const tx = await vaultWrite(wc, pc, 'requestTopUp', [id, ask, ref32(`price now ${unit} MON`)], { chainId: CHAIN_ID });
-    events.push(ev('tx', `The price is above what's left (${mon(fresh.remaining)}). Asked you for +${mon(ask)}.`, { txHash: tx.hash }));
+    events.push(ev('tx', `Price ${unit} MON + ${mon(fee)} fee = ${mon(amount + fee)}, but only ${mon(fresh.remaining)} is left in this task. Asked you for +${mon(ask)}.`, { txHash: tx.hash }));
     return { events, outcome: 'need_topup', remaining: mon(fresh.remaining) };
   }
 

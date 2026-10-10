@@ -2,6 +2,7 @@
 /**
  * taskpay CLI: inspect mandates and run the demo actions from a terminal.
  *   taskpay status                     agent address, balance, ERC-8004 id
+ *   taskpay fund                       get test MON for the agent key's gas from the TaskPay faucet
  *   taskpay register                   register the agent key in the ERC-8004 IdentityRegistry
  *   taskpay list                       this agent's mandates
  *   taskpay draft "<task>" <item> <budget>   draft a mandate (prints the approve link)
@@ -36,6 +37,8 @@ async function main() {
       const bal = await rt.pc.getBalance({ address: rt.agentAccount.address });
       return out({ agent: rt.agentAccount.address, balance: `${formatEther(bal)} MON`, agentId: rt.agentFile.agentId ?? null, home: rt.HOME, web: rt.WEB_URL, vault: rt.addressesFor(rt.CHAIN_ID).vault });
     }
+    case 'fund':
+      return out(await rt.fundAgent());
     case 'register':
       return out(await rt.ensureAgent());
     case 'list':
@@ -76,7 +79,7 @@ async function main() {
       return out({ reclaimed: tx.ok, explorer: explorerTx(tx.hash, rt.CHAIN_ID) });
     }
     default:
-      console.log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(2, 17).join('\n'));
+      console.log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(2, 18).join('\n'));
   }
 }
 

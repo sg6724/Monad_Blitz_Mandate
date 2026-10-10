@@ -59,20 +59,31 @@ Demo switches to try:
 
 ## Use it from Claude Code (MCP)
 
+Needs Node 20+, Claude Code, and MetaMask in your browser.
+
 ```bash
 git clone https://github.com/sg6724/Monad_Blitz_Mandate && cd Monad_Blitz_Mandate && npm install
 claude mcp add taskpay -e TASKPAY_WEB_URL=https://taskpay.jainamoswal.xyz -- npx tsx "$PWD/mcp/src/index.ts"
+npx tsx mcp/src/cli.ts status   # shows the agent key the server created in ~/.taskpay/agent.json
+npx tsx mcp/src/cli.ts fund     # one-time: 1 test MON for that key's gas from the TaskPay faucet
 ```
 
-Then ask: "Use TaskPay to buy me a cap from BlockMart under 0.6 MON."
+Run `claude` from the repo folder (add `-s user` to `claude mcp add` to use it from any folder), then ask: "Use TaskPay to buy me a cap from BlockMart under 0.6 MON."
 
-Claude asks any follow-up questions and sends you an approve link. You confirm it in MetaMask, then Claude pays and closes the task. Step logs go to `~/.taskpay/logs/`.
+- Claude asks any follow-up questions, then sends you an approve link. You confirm it once in MetaMask.
+- Claude gets a quote, pays and closes the task. Unspent MON goes back to your wallet. Step logs are saved in `~/.taskpay/logs/`.
+- If TaskGuard holds a payment for review, or Claude asks for a top-up, you approve it on the task page (`/agent?id=<task>`) that Claude links to.
+- The agent key only pays gas (about 0.07 MON per task). Instead of `fund` you can send it testnet MON from any wallet.
 
-On first run the MCP server creates its own agent key in `~/.taskpay/agent.json`. Send that address a little testnet MON for gas; `npx tsx mcp/src/cli.ts status` shows it.
+How MetaMask works with MCP: the MCP server never sees your wallet or keys and never holds your money. `request_mandate` encodes the task (item, store, pay-to address, budget, expiry, agent address) into an approve link, `https://taskpay.jainamoswal.xyz/approve#<draft>`. The draft sits in the URL fragment, so it never reaches a server. You open the link, connect MetaMask on Monad testnet, check the card and press Lock. That one transaction moves the budget into the TaskPay vault, and `wait_for_approval` sees it (`findByDraft`). From then on the agent can only ask the vault to pay that merchant, up to that budget, until the expiry. On the task page you can close the task or freeze the agent at any time.
 
 Tools: `browse_store`, `request_mandate`, `wait_for_approval`, `get_quote`, `pay`, `request_topup`, `get_mandate`, `close_mandate`, `list_mandates`.
 
-CLI: `npx tsx mcp/src/cli.ts status | draft | approve | buy | attack | topup | approve-topup | timeline | close | reclaim`
+CLI: `npx tsx mcp/src/cli.ts status | fund | register | list | draft | approve | buy | attack | topup | approve-topup | timeline | close | reclaim`. Smoke test: `npx tsx mcp/src/selftest.ts` (add `--e2e` with `TASKPAY_OWNER_KEY` set to a test owner key for a full on-chain run).
+
+## Check it on-chain yourself
+
+Every money event is stored in the vault and hash-chained, so it can't be edited later. `npx tsx scripts/verify-task.ts <taskId>` prints a task's full record, recomputes the hash chain, checks the money adds up and confirms the ERC-8004 identity and feedback. In the app, open a task and use "Proof on Monad" → "Check the record now". [docs/ONCHAIN-PROOF.md](docs/ONCHAIN-PROOF.md) explains what is stored where and how to check it on Monadscan.
 
 ## Run locally
 
@@ -94,7 +105,8 @@ contracts/     TaskPayVault.sol, Foundry tests, deploy script
 packages/sdk/  shared TypeScript: drafts, TaskGuard, vault client, timeline, ERC-8004, catalogue
 mcp/           MCP server (index.ts) and CLI (cli.ts)
 web/           Next.js app: BlockMart store, AI Shopper, approve page, APIs (agent, Transak, faucet, keeper)
-docs/          PRD and implementation plan
+docs/          PRD, implementation plan, ONCHAIN-PROOF.md
+scripts/       deploy, keeper loop, verify-task.ts
 ```
 
 ## Who holds what

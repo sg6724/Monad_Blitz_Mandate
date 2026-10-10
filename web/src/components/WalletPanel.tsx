@@ -7,6 +7,7 @@ import { CHAIN } from '@/lib/wagmi';
 import { explorerAddress, short } from '@taskpay/sdk';
 import { BuyWithCard } from './BuyWithCard';
 import { Identicon } from './Identicon';
+import { Inr } from './Inr';
 
 function useMounted() {
   const [m, setM] = useState(false);
@@ -181,6 +182,7 @@ export function WalletButton() {
               {w.mon === undefined ? '…' : w.mon.toFixed(3)}
               <span className="ml-1.5 text-[14px]">MON</span>
             </div>
+            {w.mon !== undefined && <Inr mon={w.mon} className="text-[12px] text-neutral-500" />}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
             <button

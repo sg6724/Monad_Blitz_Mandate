@@ -1,12 +1,13 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { describeEntry, draftId as draftIdOf, explorerTx, findByDraft, mon, type Draft, type LocalStep, type Question } from '@taskpay/sdk';
 import { useWallet, ConnectButton } from '@/components/WalletPanel';
 import { TaskCard } from '@/components/TaskCard';
-import { MandatePanel, statusOf } from '@/components/MandatePanel';
-import { Timeline, type TimelineFilter } from '@/components/Timeline';
+import { statusOf } from '@/components/MandatePanel';
+import { TaskPanel } from '@/components/TaskPanel';
+import { ago, friendly, rollUp } from '@/lib/friendly';
 import { ArrowRight, ShieldIcon, SparkIcon } from '@/components/Icons';
 import { NAMES, appendSteps, moveSteps, readChat, readSteps, readTaskMeta, saveChat, saveTaskMeta, stepsHash, useOwnerActions, type ChatMsg } from '@/lib/client';
 import { pc, useMandate, useMyMandates } from '@/lib/useMandate';
@@ -15,6 +16,8 @@ const EXAMPLES = ['Get me something warm for the monsoon', 'Buy the Utility Hood
 const AGENT_ID = process.env.NEXT_PUBLIC_AGENT_ID ?? '2100';
 const GREETING: ChatMsg = { role: 'agent', text: "Tell me what you need from BlockMart. I'll ask for anything missing, then you lock a budget I can't go over." };
 const now = () => Math.floor(Date.now() / 1000);
+/** Keeps the task in the URL without a router navigation, which would remount the page mid-run. */
+const setUrl = (u: string) => window.history.replaceState(null, '', u);
 
 function toneOf(s: LocalStep): ChatMsg['tone'] {
   if (s.kind === 'injection') return 'bad';
@@ -45,6 +48,58 @@ function LogRow({ m }: { m: ChatMsg }) {
           <span className="ml-2 rounded bg-[var(--color-fog)] px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500">agent log</span>
         )}
       </span>
+    </div>
+  );
+}
+
+/** Consecutive log rows become one card: plain-language steps first, the raw record behind "Proof on Monad". */
+function groupMsgs(msgs: ChatMsg[]) {
+  const out: (ChatMsg | ChatMsg[])[] = [];
+  for (const m of msgs) {
+    const last = out[out.length - 1];
+    if (m.role === 'log') {
+      if (Array.isArray(last)) last.push(m);
+      else out.push([m]);
+    } else out.push(m);
+  }
+  return out;
+}
+
+const TONE_CLS: Record<string, string> = {
+  ok: 'text-neutral-900',
+  safe: 'rounded-lg bg-emerald-50 px-2 py-1 -mx-2 text-emerald-900',
+  warn: 'rounded-lg bg-amber-50 px-2 py-1 -mx-2 text-amber-900',
+  bad: 'rounded-lg bg-red-50 px-2 py-1 -mx-2 text-red-900',
+};
+
+function ActivityCard({ rows }: { rows: ChatMsg[] }) {
+  const [proof, setProof] = useState(false);
+  const lines = rollUp(rows.map((r) => friendly(r.text, r.kind) && { ...friendly(r.text, r.kind)!, at: r.at }).filter(Boolean) as any);
+  const onchain = rows.filter((r) => r.txHash || r.source === 'chain').length;
+  return (
+    <div className="rise ml-10 max-w-[86%] rounded-2xl border border-[var(--color-fog)] bg-white p-4">
+      <div className="label mb-2 text-neutral-500">What the agent did</div>
+      <ul className="space-y-1.5">
+        {lines.map((l, i) => (
+          <li key={i} className={`flex items-start gap-2.5 text-[13px] leading-snug ${TONE_CLS[l.tone ?? ''] ?? 'text-neutral-700'}`}>
+            <span className="w-5 shrink-0 text-center">{l.icon}</span>
+            <span className="flex-1">{l.text}</span>
+            <span className="shrink-0 text-[11px] text-neutral-400">{ago(l.at)}</span>
+          </li>
+        ))}
+      </ul>
+      {onchain > 0 && (
+        <button className="mt-3 text-[11.5px] font-semibold text-neutral-500 underline" onClick={() => setProof((p) => !p)}>
+          {proof ? 'Hide proof' : `Proof on Monad · ${onchain} recorded step${onchain === 1 ? '' : 's'}`}
+        </button>
+      )}
+      {proof && (
+        <div className="mt-2 rounded-xl bg-[var(--color-mist)] px-3 py-2">
+          {rows.map((r, i) => (
+            <LogRow key={i} m={r} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -82,7 +137,7 @@ function TaskList({ selected, onSelect, onNew }: { selected: string | null; onSe
         </button>
       </div>
       <div className="label px-4 pb-2 text-neutral-500">Your tasks</div>
-      <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
+      <div className="flex-1 space-y-1.5 overflow-y-auto px-3 pb-4 pt-1">
         {!w.isConnected ? (
           <p className="px-2 text-[12px] text-neutral-500">Connect your wallet to see the tasks you funded.</p>
         ) : isLoading ? (
@@ -98,8 +153,9 @@ function TaskList({ selected, onSelect, onNew }: { selected: string | null; onSe
               <button
                 key={id}
                 onClick={() => onSelect(id)}
-                className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selected === id ? 'bg-white shadow-sm ring-1 ring-black' : 'hover:bg-white/70'}`}
+                className={`relative w-full overflow-hidden rounded-xl border px-3 py-2.5 text-left transition ${selected === id ? 'border-neutral-300 bg-white shadow-sm' : 'border-transparent hover:bg-white/70'}`}
               >
+                {selected === id && <span className="absolute inset-y-0 left-0 w-1 bg-[var(--color-volt)]" />}
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate text-[13px] font-semibold">{meta?.item ?? `Task #${id}`}</span>
                   <span className={`label shrink-0 rounded px-1.5 py-0.5 text-[9px] ${st.cls}`}>{st.label}</span>
@@ -121,7 +177,6 @@ function TaskList({ selected, onSelect, onNew }: { selected: string | null; onSe
 
 function AgentInner() {
   const params = useSearchParams();
-  const router = useRouter();
   const w = useWallet();
   const owner = useOwnerActions();
   const [msgs, setMsgs] = useState<ChatMsg[]>([GREETING]);
@@ -133,7 +188,6 @@ function AgentInner() {
   const [busy, setBusy] = useState<string | null>(null);
   const [compromised, setCompromised] = useState(false);
   const [surge, setSurge] = useState(false);
-  const [tab, setTab] = useState<TimelineFilter>('chain');
   const [fromChain, setFromChain] = useState(false);
   const [, force] = useState(0);
   const { data } = useMandate(mandateId ? BigInt(mandateId) : undefined);
@@ -151,7 +205,7 @@ function AgentInner() {
     if (!fromChain || !data?.m || !mandateId) return;
     const names = { ...NAMES, [data.m.owner.toLowerCase()]: 'you' };
     setMsgs([
-      { role: 'agent', text: `Task #${mandateId} ran in another browser or from MCP, so its agent log isn't stored here. This is its on-chain record from the vault.` },
+      { role: 'agent', text: `There's no agent log for task #${mandateId} in this browser (it may have run elsewhere, e.g. from MCP). Here's its on-chain record from the vault.` },
       ...data.h.map((e) => {
         const l = describeEntry(e, data.m!, names);
         return { role: 'log' as const, text: l.text, at: l.at, kind: 'tx' as const, source: 'chain' as const, tone: l.tone === 'info' ? undefined : l.tone === 'warn' ? ('warn' as const) : l.tone };
@@ -161,15 +215,11 @@ function AgentInner() {
   }, [fromChain, data, mandateId]);
   useEffect(() => {
     if (started.current) return;
+    started.current = true; // only the URL the page was opened with; later URL updates are our own
     const t = params.get('task');
     const id = params.get('id');
-    if (id) {
-      started.current = true;
-      openTask(id);
-    } else if (t) {
-      started.current = true;
-      send(t);
-    }
+    if (id) openTask(id);
+    else if (t) send(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
@@ -181,7 +231,6 @@ function AgentInner() {
     setQuestions([]);
     setPartial(undefined);
     setMandateId(id);
-    setTab('chain');
     const saved = readChat(id);
     const steps = readSteps(id);
     if (saved?.length) setMsgs(saved);
@@ -190,7 +239,7 @@ function AgentInner() {
       setMsgs([{ role: 'agent', text: `Loading task #${id} from Monad…` }]);
       setFromChain(true);
     }
-    router.replace(`/agent?id=${id}`, { scroll: false });
+    setUrl(`/agent?id=${id}`);
   }
 
   function reset() {
@@ -199,7 +248,7 @@ function AgentInner() {
     setQuestions([]);
     setDraft(null);
     setMandateId(null);
-    router.replace('/agent', { scroll: false });
+    setUrl('/agent');
   }
 
   async function send(text: string, answers?: Record<string, string>) {
@@ -237,9 +286,9 @@ function AgentInner() {
       const first: LocalStep = { at: now(), kind: 'note', text: `Drafted "${draft.task}" · ${draft.item} · up to ${draft.budget} MON` };
       appendSteps(did, [first]);
       moveSteps(did, sid);
-      saveTaskMeta(sid, { item: draft.item!, purpose: `${draft.task} — ${draft.item}`, draftId: did });
+      saveTaskMeta(sid, { item: draft.item!, purpose: `${draft.task} — ${draft.item}`, draftId: did, surge, compromised });
       setMandateId(sid);
-      router.replace(`/agent?id=${sid}`, { scroll: false });
+      setUrl(`/agent?id=${sid}`);
       say({ role: 'agent', text: `Locked ${draft.budget} MON in task #${sid} (confirmed in ${(r.ms / 1000).toFixed(1)} s). Shopping now…`, tone: 'ok' }, { role: 'log', text: `Task #${sid} created in the vault`, kind: 'tx', at: now(), txHash: r.hash });
       await runPhase(sid, 'shop');
     } catch {
@@ -258,8 +307,9 @@ function AgentInner() {
           mandateId: id,
           item: draft?.item ?? meta?.item,
           purpose: draft ? `${draft.task} — ${draft.item}` : meta?.purpose,
-          compromised,
-          surge,
+          // Demo switches are fixed per task when it's locked, so a resumed task behaves the same way.
+          compromised: meta?.compromised ?? compromised,
+          surge: meta?.surge ?? surge,
           phase,
           logHash: phase === 'close' ? stepsHash(id) : undefined,
         }),
@@ -348,9 +398,7 @@ function AgentInner() {
         </div>
 
         <div ref={scroller} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-5 py-5">
-          {msgs.map((m, i) => (
-            <Bubble key={i} m={m} />
-          ))}
+          {groupMsgs(msgs).map((g, i) => (Array.isArray(g) ? <ActivityCard key={i} rows={g} /> : <Bubble key={i} m={g} />))}
           {questions.map((q) => (
             <div key={q.field} className="rise pl-10 pt-1">
               <div className="label mb-2 text-neutral-500">{q.text}</div>
@@ -452,8 +500,8 @@ function AgentInner() {
                     <button className="btn w-full" disabled={!!busy} onClick={lock}>
                       {owner.pending === 'lock' ? 'Confirm in MetaMask…' : `Lock ${draft.budget} MON`}
                     </button>
-                    {w.mon !== undefined && w.mon < Number(draft.budget) + 0.05 && (
-                      <p className="text-[12px] text-[var(--color-bad)]">You have {w.mon.toFixed(3)} MON. Add funds from the wallet menu (top right).</p>
+                    {w.mon !== undefined && w.mon < Number(draft.budget) + 0.08 && (
+                      <p className="text-[12px] text-[var(--color-bad)]">You have {w.mon.toFixed(3)} MON. You need the budget plus about 0.08 MON for gas. Get test MON from the wallet menu (top right).</p>
                     )}
                     {owner.error && <p className="text-[12px] text-[var(--color-bad)]">{owner.error}</p>}
                   </div>
@@ -465,26 +513,7 @@ function AgentInner() {
           {mandateId && !data?.m && <p className="text-[13px] text-neutral-500">Loading task #{mandateId} from Monad…</p>}
           {mandateId && data?.m && (
             <>
-              <MandatePanel m={data.m} onAction={onOwnerAction} />
-              <div>
-                <div className="mb-3 flex rounded-xl bg-[var(--color-mist)] p-1 text-[11px] font-semibold">
-                  {(
-                    [
-                      ['chain', `On-chain (${data.h.length})`],
-                      ['local', `Agent log (${readSteps(mandateId).length})`],
-                      ['all', 'Both'],
-                    ] as const
-                  ).map(([k, label]) => (
-                    <button key={k} className={`flex-1 rounded-lg py-1.5 ${tab === k ? 'bg-white shadow-sm' : 'text-neutral-500'}`} onClick={() => setTab(k)}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <Timeline m={data.m} entries={data.h} steps={readSteps(mandateId)} filter={tab} compact />
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-                <ShieldIcon className="h-3.5 w-3.5" /> Rules enforced by the TaskPay vault on Monad.
-              </div>
+              <TaskPanel m={data.m} entries={data.h} steps={readSteps(mandateId)} busy={!!busy} onAction={onOwnerAction} />
             </>
           )}
 

@@ -96,10 +96,20 @@ export const SURGE_MULTIPLIER = 1.15;
 
 export const HACKER_ADDRESS = '0x000000000000000000000000000000000000dEaD' as const;
 
+/** Everyday words mapped to catalogue categories, so "a hat" finds the cap too. */
+const SYNONYMS: Record<string, string> = {
+  hat: 'headwear', cap: 'headwear', beanie: 'headwear', head: 'headwear',
+  jacket: 'outerwear', hoodie: 'outerwear', coat: 'outerwear', warm: 'outerwear', monsoon: 'outerwear', rain: 'outerwear',
+  pants: 'bottoms', trousers: 'bottoms', cargo: 'bottoms', jeans: 'bottoms',
+  shirt: 'tops', tee: 'tops', tshirt: 'tops',
+  bag: 'bags', backpack: 'bags', purse: 'bags',
+};
+
 export function findProducts(query?: string): Product[] {
   if (!query) return CATALOG;
   const q = query.toLowerCase();
-  const words = q.match(/[a-z]{3,}/g) ?? [q];
+  const base = q.match(/[a-z]{3,}/g) ?? [q];
+  const words = [...base, ...base.map((w) => SYNONYMS[w.replace(/s$/, '')]).filter(Boolean)] as string[];
   const scored = CATALOG.map((p) => {
     const hay = `${p.name} ${p.category} ${p.blurb}`.toLowerCase();
     return { p, s: words.filter((w) => hay.includes(w) || hay.includes(w.replace(/s$/, ''))).length };

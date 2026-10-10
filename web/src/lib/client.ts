@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useConfig } from 'wagmi';
-import { writeContract, waitForTransactionReceipt, switchChain, getChainId } from 'wagmi/actions';
+import { writeContract, waitForTransactionReceipt, switchChain, getChainId, getPublicClient, getAccount } from 'wagmi/actions';
 import { keccak256, toHex, type Address, type Hex } from 'viem';
 import { addressesFor, vaultAbi, mandateArgs, type Draft, type LocalStep } from '@taskpay/sdk';
 import { CHAIN } from './wagmi';
@@ -48,14 +48,14 @@ export function stepsHash(id: string): Hex {
 }
 
 /** Context the agent needs between calls (approved item and purpose), kept per mandate. */
-export function saveTaskMeta(id: string, meta: { item: string; purpose: string; draftId?: string }) {
+export function saveTaskMeta(id: string, meta: { item: string; purpose: string; draftId?: string; surge?: boolean; compromised?: boolean }) {
   try {
     localStorage.setItem(`taskpay:meta:${id}`, JSON.stringify(meta));
   } catch {
     /* ignore */
   }
 }
-export function readTaskMeta(id: string): { item: string; purpose: string; draftId?: string } | null {
+export function readTaskMeta(id: string): { item: string; purpose: string; draftId?: string; surge?: boolean; compromised?: boolean } | null {
   try {
     return JSON.parse(localStorage.getItem(`taskpay:meta:${id}`) ?? 'null');
   } catch {
@@ -76,8 +76,15 @@ export function useOwnerActions() {
       setError(null);
       try {
         if (getChainId(config) !== CHAIN.id) await switchChain(config, { chainId: CHAIN.id });
+        // Monad charges for the gas limit, and MetaMask pads both limit and fee, so it can claim "insufficient MON"
+        // on small balances. We estimate ourselves: gas +10%, max fee = base fee x1.25 + tip.
+        const pcl = getPublicClient(config, { chainId: CHAIN.id })!;
+        const account = getAccount(config).address;
+        const call = { address: VAULT, abi: vaultAbi, functionName: functionName as any, args: args as any, value, account } as any;
+        const [gas, block, tip] = await Promise.all([pcl.estimateContractGas(call), pcl.getBlock(), pcl.estimateMaxPriorityFeePerGas()]);
+        const maxFeePerGas = ((block.baseFeePerGas ?? 100_000_000_000n) * 125n) / 100n + tip;
         const t0 = Date.now();
-        const hash = await writeContract(config, { address: VAULT, abi: vaultAbi, functionName: functionName as any, args: args as any, value, chainId: CHAIN.id } as any);
+        const hash = await writeContract(config, { ...call, chainId: CHAIN.id, gas: (gas * 110n) / 100n, maxFeePerGas, maxPriorityFeePerGas: tip } as any);
         const receipt = await waitForTransactionReceipt(config, { hash, chainId: CHAIN.id });
         if (receipt.status !== 'success') throw new Error('Transaction reverted');
         return { hash, receipt, ms: Date.now() - t0 };

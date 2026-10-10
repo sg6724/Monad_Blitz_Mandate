@@ -75,7 +75,7 @@ export default function Home() {
       </section>
 
       {/* Lookbook */}
-      <section id="lookbook" className="mx-auto max-w-[1280px] px-6 py-14 md:px-10">
+      <section id="lookbook" className="scroll-mt-24 mx-auto max-w-[1280px] px-6 py-14 md:px-10">
         <div className="flex items-center justify-between md:px-[6.5rem]">
           <h2 className="label text-[13px]">Lookbook SS26</h2>
           <Link href="/shop" className="label text-[12px]">
@@ -105,8 +105,45 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How it works */}
+      <section id="how" className="scroll-mt-24 mx-auto max-w-[1280px] px-6 py-16 md:px-10">
+        <div className="md:px-[6.5rem]">
+          <h2 className="label text-[13px]">How TaskPay works</h2>
+          <p className="display mt-4 max-w-[760px] text-[32px] leading-[1.05] md:text-[40px]">Give your AI a task, not your wallet.</p>
+          <div className="mt-10 grid gap-4 md:grid-cols-4">
+            {[
+              ['01', 'Say what you need', 'Tell the AI shopper what to buy and the most you’ll spend. It asks if anything is unclear.'],
+              ['02', 'Lock a small budget', 'One MetaMask confirmation puts just that amount aside on Monad for this one task.'],
+              ['03', 'The agent shops inside it', 'It can only pay this store, up to your limit, before the deadline. Anything else is refused.'],
+              ['04', 'Leftovers come back', 'When the task ends, unspent money returns to your wallet automatically, with a receipt.'],
+            ].map(([n, t, b]) => (
+              <div key={n} className="bg-[var(--color-mist)] p-6">
+                <div className="display text-[22px]">{n}</div>
+                <div className="mt-4 text-[14px] font-bold">{t}</div>
+                <p className="mt-2 text-[13px] leading-relaxed text-neutral-600">{b}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[
+              ['If the agent is tricked', 'A fake review told our agent to send money elsewhere. The budget only pays approved shops, so nothing moved.'],
+              ['If the price goes up', 'The agent can’t spend more on its own. It asks you, and you approve or decline.'],
+              ['Proof, not promises', 'Every payment, refusal and refund is recorded on Monad, so anyone can check it.'],
+            ].map(([t, b]) => (
+              <div key={t} className="border border-[var(--color-fog)] p-6">
+                <div className="text-[14px] font-bold">{t}</div>
+                <p className="mt-2 text-[13px] leading-relaxed text-neutral-600">{b}</p>
+              </div>
+            ))}
+          </div>
+          <Link href="/agent" className="btn mt-8">
+            Try the AI shopper
+          </Link>
+        </div>
+      </section>
+
       {/* More products */}
-      <section id="journal" className="mx-auto max-w-[1280px] px-6 py-14 md:px-10">
+      <section id="new" className="scroll-mt-24 mx-auto max-w-[1280px] px-6 py-14 md:px-10">
         <div className="flex items-center justify-between md:px-[6.5rem]">
           <h2 className="label text-[13px]">New Arrivals</h2>
           <Link href="/shop" className="label text-[12px]">
