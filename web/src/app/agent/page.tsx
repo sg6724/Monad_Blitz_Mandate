@@ -29,7 +29,7 @@ function AgentInner() {
   const w = useWallet();
   const owner = useOwnerActions();
   const [msgs, setMsgs] = useState<Msg[]>([
-    { role: 'agent', text: "Tell me what you need from NEXUS. I'll ask for anything missing, then you lock a budget I can't go over." },
+    { role: 'agent', text: "Tell me what you need from BlockMart. I'll ask for anything missing, then you lock a budget I can't go over." },
   ]);
   const [input, setInput] = useState('');
   const [partial, setPartial] = useState<Partial<Draft> | undefined>();
@@ -186,7 +186,7 @@ function AgentInner() {
         <section className="flex min-h-[560px] flex-col border border-black">
           <div className="flex items-center justify-between border-b border-black px-5 py-3">
             <span className="label inline-flex items-center gap-2">
-              <SparkIcon className="h-4 w-4" /> NEXUS shopping agent
+              <SparkIcon className="h-4 w-4" /> BlockMart shopping agent
             </span>
             <button className="label text-neutral-500" onClick={reset}>
               New task
@@ -263,7 +263,7 @@ function AgentInner() {
                   'You say what you want. The agent asks for anything missing.',
                   'A task card appears: store, item, budget, deadline.',
                   'You lock the budget in MetaMask. One confirmation.',
-                  'The agent can only pay NEXUS, within the cap, before the deadline.',
+                  'The agent can only pay BlockMart, within the cap, before the deadline.',
                   'Unspent MON comes back. Every step is on the timeline.',
                 ].map((t, i) => (
                   <li key={i} className="flex gap-4">

@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight } from './Icons';
 
 const SLIDES = [
-  { kicker: 'New Collection SS26', title: ['Designed', 'for the', 'undefined.'], body: ['Minimal design. Maximum impact.', 'Built for the present. Worn into the future'], img: '/nexus/hero.png' },
-  { kicker: 'Shop with an AI agent', title: ['Give your', 'AI a task,', 'not your wallet.'], body: ['Tell the agent what you need and a max spend.', 'TaskPay locks that budget on Monad. Nothing else can be spent.'], img: '/nexus/hero.png' },
-  { kicker: 'TaskGuard security', title: ['Your agent', 'can be fooled.', 'Your money can’t.'], body: ['Five layers check every payment.', 'The last two live on-chain and can’t be bypassed.'], img: '/nexus/hero.png' },
+  { kicker: 'New Collection SS26', title: ['Designed', 'for the', 'undefined.'], body: ['Minimal design. Maximum impact.', 'Built for the present. Worn into the future'], img: '/store/hero.png' },
+  { kicker: 'Shop with an AI agent', title: ['Give your', 'AI a task,', 'not your wallet.'], body: ['Tell the agent what you need and a max spend.', 'TaskPay locks that budget on Monad. Nothing else can be spent.'], img: '/store/hero.png' },
+  { kicker: 'TaskGuard security', title: ['Your agent', 'can be fooled.', 'Your money can’t.'], body: ['Five layers check every payment.', 'The last two live on-chain and can’t be bypassed.'], img: '/store/hero.png' },
 ];
 
 export function HeroSlider() {

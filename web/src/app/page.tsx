@@ -50,7 +50,7 @@ export default function Home() {
             </div>
           </div>
           <div className="relative mx-auto aspect-[300/316] w-full max-w-[340px]">
-            <Image src="/nexus/showcase.png" alt="Utility Hoodie" fill sizes="340px" className="object-contain mix-blend-multiply" />
+            <Image src="/store/showcase.png" alt="Utility Hoodie" fill sizes="340px" className="object-contain mix-blend-multiply" />
           </div>
           <ul className="space-y-10">
             {[
@@ -85,7 +85,7 @@ export default function Home() {
         <div className="mt-10 grid grid-cols-3 gap-4 md:px-[6.5rem]">
           {['look1', 'look2', 'look3'].map((l) => (
             <div key={l} className="relative aspect-[184/218] overflow-hidden bg-[var(--color-mist)]">
-              <Image src={`/nexus/${l}.png`} alt="Lookbook" fill sizes="33vw" className="object-cover grayscale" />
+              <Image src={`/store/${l}.png`} alt="Lookbook" fill sizes="33vw" className="object-cover grayscale" />
             </div>
           ))}
         </div>

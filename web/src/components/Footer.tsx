@@ -12,7 +12,7 @@ export function Footer() {
     <footer className="bg-[var(--color-mist)]">
       <div className="mx-auto grid max-w-[1280px] gap-10 px-6 py-16 md:grid-cols-[1.4fr_1fr_1fr_1fr_1.5fr] md:px-10">
         <div>
-          <div className="font-[family-name:var(--font-archivo)] text-[22px] font-black">NEXUS</div>
+          <div className="font-[family-name:var(--font-archivo)] text-[22px] font-black">BLOCKMART</div>
           <p className="mt-4 max-w-[220px] text-[12px] leading-relaxed text-neutral-600">
             Minimal design and maximum impact. Shoppable by people, and by AI agents on a budget they can&apos;t break.
           </p>

@@ -24,7 +24,7 @@ export function Header() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-[78px] max-w-[1280px] items-center justify-between px-6 md:px-10">
           <Link href="/" className="font-[family-name:var(--font-archivo)] text-[22px] font-black tracking-tight">
-            NEXUS
+            BLOCKMART
           </Link>
           <nav className="hidden items-center gap-14 md:flex">
             {NAV.map((n) => (

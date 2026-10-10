@@ -124,11 +124,11 @@ export async function ensureAgent() {
 
 // ---------------------------------------------------------------- stores
 
-const BUILTIN_NEXUS: MerchantIdentity = {
-  name: 'NEXUS',
-  domain: 'nexus',
+const BUILTIN_STORE: MerchantIdentity = {
+  name: 'BlockMart',
+  domain: 'blockmart',
   category: 'apparel',
-  payTo: (process.env.TASKPAY_NEXUS_PAYTO ?? '0x27dd67D92c1754D3F30b9D7965D8Cf6cf2B3D0be') as Address,
+  payTo: (process.env.TASKPAY_STORE_PAYTO ?? '0x27dd67D92c1754D3F30b9D7965D8Cf6cf2B3D0be') as Address,
   priceRange: { min: 0.4, max: 1.4 },
 };
 
@@ -141,7 +141,7 @@ export async function knownStores(): Promise<MerchantIdentity[]> {
       /* unreachable store */
     }
   }
-  if (!out.find((m) => m.name.toLowerCase() === 'nexus')) out.push(BUILTIN_NEXUS);
+  if (!out.find((m) => m.name.toLowerCase() === 'blockmart')) out.push(BUILTIN_STORE);
   return out;
 }
 
@@ -157,7 +157,7 @@ async function storeFetch(path: string, init?: RequestInit) {
   return res.json();
 }
 
-/** Browse NEXUS. Reviews are quarantined and scanned for injection before the model sees them. */
+/** Browse BlockMart. Reviews are quarantined and scanned for injection before the model sees them. */
 export async function browse(query: string | undefined, logKey?: string) {
   let products: { id: string; name: string; price: number; blurb: string; reviews: { author: string; text: string }[] }[];
   try {
@@ -179,7 +179,7 @@ export async function browse(query: string | undefined, logKey?: string) {
     out.push({ id: p.id, name: p.name, price_mon: p.price, about: p.blurb, reviews });
   }
   if (logKey) {
-    logStep(logKey, { kind: 'search', text: `Browsed NEXUS${query ? ` for "${query}"` : ''}: ${out.length} products` });
+    logStep(logKey, { kind: 'search', text: `Browsed BlockMart${query ? ` for "${query}"` : ''}: ${out.length} products` });
     for (const f of flags) logStep(logKey, { kind: 'injection', text: `TaskGuard flagged ${f}` });
   }
   if (logKey && exposure) bumpExposure(logKey, exposure);
@@ -205,7 +205,7 @@ export async function quote(productId: string, qty = 1) {
   } catch {
     const p = CATALOG.find((x) => x.id === productId);
     if (!p) throw new Error(`Unknown product ${productId}`);
-    return { orderId: `NX-${Date.now().toString(36).toUpperCase()}`, productId, name: p.name, qty, amount: (p.price * qty).toFixed(4), payTo: BUILTIN_NEXUS.payTo, network: `eip155:${CHAIN_ID}` };
+    return { orderId: `BM-${Date.now().toString(36).toUpperCase()}`, productId, name: p.name, qty, amount: (p.price * qty).toFixed(4), payTo: BUILTIN_STORE.payTo, network: `eip155:${CHAIN_ID}` };
   }
 }
 
@@ -271,7 +271,7 @@ export async function mandateSummary(id: bigint) {
   const m = await getMandate(pc, id, CHAIN_ID);
   if (!m) throw new Error(`Mandate #${id} not found`);
   const [entries] = await Promise.all([getHistory(pc, id, CHAIN_ID)]);
-  const names = { [m.owner.toLowerCase()]: 'you', [BUILTIN_NEXUS.payTo.toLowerCase()]: 'NEXUS' };
+  const names = { [m.owner.toLowerCase()]: 'you', [BUILTIN_STORE.payTo.toLowerCase()]: 'BlockMart' };
   const lines = mergeTimeline(entries, m, readSteps(String(id)), names);
   return {
     id: id.toString(),

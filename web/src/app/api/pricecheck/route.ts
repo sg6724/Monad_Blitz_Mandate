@@ -12,5 +12,5 @@ export async function GET(req: Request) {
   }
   const item = url.searchParams.get('item') ?? '';
   const p = CATALOG.find((x) => x.name.toLowerCase() === item.toLowerCase());
-  return NextResponse.json({ item, best: p ? { store: 'NEXUS', price: p.price } : null, checkedAt: new Date().toISOString() });
+  return NextResponse.json({ item, best: p ? { store: 'BlockMart', price: p.price } : null, checkedAt: new Date().toISOString() });
 }

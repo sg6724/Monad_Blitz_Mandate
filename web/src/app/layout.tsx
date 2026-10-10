@@ -9,7 +9,7 @@ const archivo = Archivo({ subsets: ['latin'], weight: ['700', '800', '900'], var
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'NEXUS × TaskPay — Give your AI a task, not your wallet',
+  title: 'BlockMart × TaskPay — Give your AI a task, not your wallet',
   description: 'A demo store on Monad where AI agents shop inside per-task budgets enforced by the TaskPay vault.',
 };
 

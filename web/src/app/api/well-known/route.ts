@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { CATALOG } from '@taskpay/sdk';
 import { STORE_PAYTO, siteUrl } from '@/lib/server';
 
-/** NEXUS merchant identity, served at /.well-known/taskpay.json (see next.config rewrites). */
+/** BlockMart merchant identity, served at /.well-known/taskpay.json (see next.config rewrites). */
 export async function GET(req: Request) {
   const base = siteUrl(req);
   const prices = CATALOG.map((p) => p.price);
   return NextResponse.json({
-    name: 'NEXUS',
+    name: 'BlockMart',
     domain: new URL(base).host,
     category: 'apparel',
     payTo: STORE_PAYTO,

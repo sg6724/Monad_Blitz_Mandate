@@ -42,7 +42,7 @@ async function main() {
       return out(await rt.listMandates());
     case 'draft':
       await rt.ensureAgent();
-      return out(await rt.requestMandate({ task: args[0], store: 'NEXUS', item: args[1], budget: args[2], expiry_mins: args[3] ? Number(args[3]) : undefined }));
+      return out(await rt.requestMandate({ task: args[0], store: 'BlockMart', item: args[1], budget: args[2], expiry_mins: args[3] ? Number(args[3]) : undefined }));
     case 'approve': {
       const file = join(rt.HOME, 'drafts', `${args[0]}.json`);
       if (!existsSync(file)) throw new Error(`No local draft ${args[0]}`);

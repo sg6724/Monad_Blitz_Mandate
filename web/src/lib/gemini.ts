@@ -34,11 +34,11 @@ export type Extracted = { item: string | null; budget: string | null; store: str
 export async function extractTask(conversation: string): Promise<Extracted | null> {
   const catalog = CATALOG.map((p) => `${p.name} (${p.price} MON)`).join(', ');
   return json<Extracted>(
-    `You turn a shopping request into a TaskPay mandate. The only store is NEXUS, which sells: ${catalog}.
+    `You turn a shopping request into a TaskPay mandate. The only store is BlockMart, which sells: ${catalog}.
 From the conversation, return:
 - item: the exact catalogue product name the user wants, or null if unclear
 - budget: the max spend in MON as a plain number string if the user gave one (e.g. "1.3"), else null. Never invent a budget.
-- store: "NEXUS" if the user named it or if an item is chosen, else null
+- store: "BlockMart" if the user named it or if an item is chosen, else null
 - reply: one short friendly sentence acknowledging what you understood.
 Conversation:
 ${conversation}`,

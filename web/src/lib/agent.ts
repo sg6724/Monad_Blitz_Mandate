@@ -42,7 +42,7 @@ function heuristicExtract(text: string) {
   const budget = text.match(/(\d+(?:\.\d+)?)\s*(?:mon)?\b/i)?.[1] ?? null;
   const hits = findProducts(text);
   const item = hits.length < CATALOG.length ? hits[0].name : null;
-  return { item, budget, store: /nexus/i.test(text) || item ? 'NEXUS' : null };
+  return { item, budget, store: /store/i.test(text) || item ? 'BlockMart' : null };
 }
 
 export async function plan(input: PlanInput): Promise<PlanResult> {
@@ -58,7 +58,7 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   if (product && item) p.item = product.name;
   const budget = (input.answers?.budget ?? p.budget ?? (g ? g.budget : h.budget) ?? undefined)?.replace(/\s*mon\s*$/i, '');
   if (budget && !Number.isNaN(Number(budget)) && Number(budget) > 0) p.budget = String(Number(budget));
-  if ((input.answers?.store ?? g?.store ?? h.store ?? p.store) || p.item) p.store = { name: 'NEXUS', payTo: STORE_PAYTO, domain: 'nexus' };
+  if ((input.answers?.store ?? g?.store ?? h.store ?? p.store) || p.item) p.store = { name: 'BlockMart', payTo: STORE_PAYTO, domain: 'blockmart' };
 
   p.v = 1;
   p.chainId = CHAIN_ID;
@@ -69,7 +69,7 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   p.extraPayees = [{ name: 'PriceCheck API', payTo: PRICECHECK_PAYTO }];
 
   const items = (p.item ? findProducts(p.item) : findProducts(userText)).map((x) => ({ name: x.name, price: x.price }));
-  const questions = missingFields(p, { stores: [{ name: 'NEXUS', domain: 'nexus', category: 'apparel', payTo: STORE_PAYTO }], items });
+  const questions = missingFields(p, { stores: [{ name: 'BlockMart', domain: 'blockmart', category: 'apparel', payTo: STORE_PAYTO }], items });
 
   if (questions.length) {
     return { reply: g?.reply ?? 'A couple of quick details before I lock a budget.', questions, partial: p };
@@ -83,7 +83,7 @@ export async function plan(input: PlanInput): Promise<PlanResult> {
   p.perPaymentCap = String(Math.min(budgetN, Math.round(cap * 1000) / 1000));
   p.expiryMins = p.expiryMins ?? 60;
   return {
-    reply: `Here's the task card. Lock ${p.budget} MON and I'll only be able to pay NEXUS (and the price-check API), for at most ${p.perPaymentCap} MON per payment, within the next hour.`,
+    reply: `Here's the task card. Lock ${p.budget} MON and I'll only be able to pay BlockMart (and the price-check API), for at most ${p.perPaymentCap} MON per payment, within the next hour.`,
     questions: [],
     partial: p,
     draft: p as Draft,
@@ -131,7 +131,7 @@ export async function run(input: RunInput): Promise<RunResult> {
 
   if (input.phase === 'shop') {
     // Browse: the agent reads the product page and reviews. Reviews are untrusted content.
-    events.push(ev('search', `Browsing NEXUS for "${product.name}"`));
+    events.push(ev('search', `Browsing BlockMart for "${product.name}"`));
     const readable = input.compromised ? [product, productById('tech-cap')!] : [product];
     for (const p of readable) {
       for (const r of p.reviews) {
@@ -161,17 +161,17 @@ export async function run(input: RunInput): Promise<RunResult> {
       for (let i = 1; i <= 3; i++) {
         const tx = await vaultWrite(wc, pc, 'pay', [id, PRICECHECK_PAYTO, parseEther(PRICECHECK_FEE), ref32(`pricecheck-${i}`)], { chainId: CHAIN_ID });
         total += tx.settleMs;
-        events.push(ev('tx', `Paid ${PRICECHECK_FEE} MON for price check #${i} (${['NEXUS', 'market avg', 'last 30 days'][i - 1]}) · settled in ${tx.settleMs} ms`, { txHash: tx.hash }));
+        events.push(ev('tx', `Paid ${PRICECHECK_FEE} MON for price check #${i} (${['BlockMart', 'market avg', 'last 30 days'][i - 1]}) · settled in ${tx.settleMs} ms`, { txHash: tx.hash }));
       }
-      events.push(ev('note', `Price checks done: ${product.name} at NEXUS is the best price (avg ${Math.round(total / 3)} ms per micro-payment).`));
+      events.push(ev('note', `Price checks done: ${product.name} at BlockMart is the best price (avg ${Math.round(total / 3)} ms per micro-payment).`));
     }
   }
 
   // Quote
   const unit = input.surge ? Math.round(product.price * SURGE_MULTIPLIER * 1000) / 1000 : product.price;
   const amount = parseEther(String(unit));
-  const orderId = `NX-${Date.now().toString(36).toUpperCase()}`;
-  events.push(ev('quote', `NEXUS quoted ${unit} MON for ${product.name} (order ${orderId})${input.surge ? ' · surge pricing +15%' : ''}`));
+  const orderId = `BM-${Date.now().toString(36).toUpperCase()}`;
+  events.push(ev('quote', `BlockMart quoted ${unit} MON for ${product.name} (order ${orderId})${input.surge ? ' · surge pricing +15%' : ''}`));
 
   const fresh = (await getMandate(pc, id, CHAIN_ID))!;
   const fee = await feeFor(pc, amount, CHAIN_ID);
@@ -212,13 +212,13 @@ export async function run(input: RunInput): Promise<RunResult> {
     if (risk.decision === 'block') return { events, outcome: 'blocked', remaining: mon(fresh.remaining) };
     if (risk.decision === 'step_up') {
       const tx = await vaultWrite(wc, pc, 'requestApproval', [id, STORE_PAYTO, amount, ref32(orderId)], { chainId: CHAIN_ID });
-      events.push(ev('tx', `Parked ${unit} MON to NEXUS for your one-tap confirmation.`, { txHash: tx.hash }));
+      events.push(ev('tx', `Parked ${unit} MON to BlockMart for your one-tap confirmation.`, { txHash: tx.hash }));
       return { events, outcome: 'need_confirm', remaining: mon(fresh.remaining) };
     }
   }
 
   const tx = await vaultWrite(wc, pc, 'pay', [id, STORE_PAYTO, amount, ref32(orderId)], { chainId: CHAIN_ID });
-  events.push(ev('tx', `Paid ${unit} MON to NEXUS for ${product.name} · settled in ${tx.settleMs} ms`, { txHash: tx.hash, data: { settleMs: tx.settleMs, explorer: explorerTx(tx.hash, CHAIN_ID) } }));
+  events.push(ev('tx', `Paid ${unit} MON to BlockMart for ${product.name} · settled in ${tx.settleMs} ms`, { txHash: tx.hash, data: { settleMs: tx.settleMs, explorer: explorerTx(tx.hash, CHAIN_ID) } }));
   const after = (await getMandate(pc, id, CHAIN_ID))!;
   return { events, outcome: 'paid', remaining: mon(after.remaining) };
 }
