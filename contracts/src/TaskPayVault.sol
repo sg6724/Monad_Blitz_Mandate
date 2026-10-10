@@ -305,6 +305,8 @@ contract TaskPayVault is ReentrancyGuard {
         if (amount == 0) revert NothingPending();
         _pull(m.token, msg.sender, amount);
         m.pendingTopUp = 0;
+        // A single-purchase task (cap == budget) keeps its cap in step with the budget.
+        if (m.perPaymentCap == m.budget) m.perPaymentCap += amount;
         m.budget += amount;
         m.toppedUp += amount;
         _log(id, m, Kind.TopUpApproved, Reason.None, msg.sender, amount, bytes32(0));

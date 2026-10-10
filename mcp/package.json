@@ -1,0 +1,13 @@
+{
+  "name": "taskpay-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "taskpay": "src/cli.ts", "taskpay-mcp": "src/index.ts" },
+  "dependencies": {
+    "@taskpay/sdk": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "viem": "^2.57.4",
+    "zod": "^3.25.76"
+  }
+}

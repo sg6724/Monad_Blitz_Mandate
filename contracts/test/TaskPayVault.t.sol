@@ -191,6 +191,19 @@ contract TaskPayVaultTest is Test {
         vault.requestTopUp(id, 0.34 ether, "too much");
     }
 
+    function test_topUpRaisesCapForSinglePurchaseTask() public {
+        uint256 id = _create(0.4 ether, 0.4 ether);
+        vm.prank(agent);
+        assertFalse(vault.pay(id, store, 0.45 ether, "cap")); // price rose above the cap
+        vm.prank(agent);
+        vault.requestTopUp(id, 0.06 ether, "price rose");
+        vm.prank(owner);
+        vault.increaseBudget{value: 0.06 ether}(id);
+        assertEq(vault.getMandate(id).perPaymentCap, 0.46 ether);
+        vm.prank(agent);
+        assertTrue(vault.pay(id, store, 0.45 ether, "retry"));
+    }
+
     function test_stepUpApproval() public {
         uint256 id = _create();
         vm.prank(agent);
