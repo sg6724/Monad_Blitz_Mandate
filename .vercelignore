@@ -1,0 +1,12 @@
+secrets
+.tmp
+.venv
+.git
+node_modules
+contracts
+vendor
+docs
+temp.txt
+sync-to-github.sh
+**/.env*
+web/.next
