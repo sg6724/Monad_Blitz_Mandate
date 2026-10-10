@@ -1,0 +1,4 @@
+source=https://github.com/therealharpaljadeja/monskills
+commit=3f8efd26057985d46e5b2b3b611c7e6957fadee0
+version=0.7.2
+note=skills only; plugin hooks not installed

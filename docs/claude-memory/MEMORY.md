@@ -1,0 +1,3 @@
+- [Blitz Pune V3 scoring rubric](blitz-pune-v3-scoring-rubric.md) — 400-pt judge rubric, deadlines; drives every build/pitch choice
+- [Blitz rules: flexible](blitz-rules-flexible.md) — user said not to enforce no-prebuilt/start-time rules strictly
+- [Mandate project](mandate-project.md) — the team's idea, PRD link, Monskills installed project-only
