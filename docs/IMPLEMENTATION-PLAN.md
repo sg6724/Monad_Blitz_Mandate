@@ -1,142 +1,143 @@
 # TaskPay implementation plan
 
-Written 10 Oct 2026, 12:25 IST. Code freeze **17:30**, submission **17:45**. Lunch is 13:00–14:00, so we have about **4 hours of build time**. The product is described in `docs/PRD-TaskPay.md`. This file covers how we build it and in what order.
+Updated 10 Oct 2026, ~13:15 IST. Code freeze is **17:30**; submit on the Devnads portal by **17:45**. The product spec is `docs/PRD-TaskPay.md`; this file covers how we build it. **Building starts only after the team says go.**
 
-## 0. Setup status
+## 0. Decisions and setup
 
-| Item | Status |
+| Item | Decision / status |
 |---|---|
-| Git | ✅ This folder tracks `origin/main` of `github.com/sg6724/Monad_Blitz_Mandate`. Nothing is committed or pushed yet. |
-| Foundry | ✅ 1.8.5 is installed at `~/.foundry/bin`. Run `export PATH="$PATH:$HOME/.foundry/bin"` in each new shell. |
-| Monskills | ✅ Installed for this project only, in `.claude/skills/`. |
-| Testnet wallets | ✅ Keys are in `secrets/wallets.env` (gitignored). Each wallet holds 1 MON from the faucet. DEPLOYER `0x29592c9465B9dE7FFa1f3E102b73f75F53565e76`, AGENT `0xfB7373E3aE843F6Fe5956fb5464841C52dC57a9C`, OPS (keeper and tUSDC minter) `0xb2ADb5734803379f64f8117931e812Ebd3a00d96`. |
-| ERC-8004 | ✅ The official v2.0.0 registries already exist on testnet, so we don't deploy them. Identity `0x8004A818BFB912233c491871b3d84c89A494BD9e`, Reputation `0x8004B663056A597Dffe9eCcC1965A193B7388713`. ABIs and notes are in `vendor/erc-8004/`. |
-| Transak | ⏳ **Your action:** sign up at dashboard.transak.com with a work email and copy the **staging** API key and secret into `web/.env.local`. |
-| LiteLLM | ⚠️ **Blocker for the web agent.** `litellm/config.yaml` passes Claude Code's own login through to Anthropic, and there's no Anthropic API key in `litellm/.env`. Calls from Vercel therefore have no credentials. **Your action:** add `ANTHROPIC_API_KEY` to `litellm/.env`, then expose the gateway to the internet (e.g. `cloudflared tunnel --url http://127.0.0.1:4000`), protected by the master key. |
-| More MON | ⚠️ A wallet holding less than 10 MON can send only one transaction every ~1.2 s (Monad's reserve-balance rule). That works, but the pay-per-call demo will be slow. Put the ~50 MON from Monad into AGENT and OPS. |
-| Subdomain | ⏳ **Your action:** add a CNAME `taskpay.<your-domain>` → `cname.vercel-dns.com` once the Vercel project exists. |
+| Payment money | **Native MON** on Monad testnet (chain 10143). There's no test token. The vault also accepts an ERC-20 per mandate, for USDC on mainnet later. |
+| Owner wallet | **MetaMask only**. One confirmation per action (lock, top-up, step-up, cancel, freeze). The app asks MetaMask to add or switch to Monad testnet. |
+| On-ramp | **Transak test mode** ("Buy MON with card"). Our server checks the order with Transak's API, then the OPS wallet sends up to 1 MON. A "Get test MON" button is the backup. |
+| LLM | **Gemini `gemini-3.5-flash`** (key tested). Used for the web agent, card drafting and the TaskGuard classifier. In MCP, the client's own model does the reasoning. |
+| ERC-8004 | The official testnet registries, used directly. Identity `0x8004A818BFB912233c491871b3d84c89A494BD9e`, Reputation `0x8004B663056A597Dffe9eCcC1965A193B7388713`. Notes are in `vendor/erc-8004/`. |
+| Logs | Money events are kept on-chain in a hash-chained history per mandate. Step logs stay local: `~/.taskpay/logs/*.jsonl` for MCP, localStorage for the web app. |
+| Keeper | `/api/keeper?key=`, called every minute by `scripts/keeper-loop.sh` (local), with cron-job.org optional. Reclaim also runs when a page opens, and there's a Reclaim button. |
+| Git | This folder tracks `origin/main` of `github.com/sg6724/Monad_Blitz_Mandate`. Ask before the first push. |
+| Tools | Foundry 1.8.5 (`export PATH="$PATH:$HOME/.foundry/bin"`), Node 22 + npm, Vercel CLI (logged in). Monskills are in `.claude/skills/`. |
+| Secrets | `secrets/wallets.env` and `secrets/api.env` (gitignored): Gemini, Transak staging key + secret. |
+| No Artifacts | All docs stay as local files. |
 
-## 1. Repo layout
+**Wallets (testnet):**
+
+| Wallet | Address | MON | Job |
+|---|---|---|---|
+| DEPLOYER | `0x29592c9465B9dE7FFa1f3E102b73f75F53565e76` | ~11 | Deploys the vault, receives the 0.5% fee |
+| AGENT | `0xfB7373E3aE843F6Fe5956fb5464841C52dC57a9C` | ~20 | The web agent's key. Asks the vault to pay; MON only for its fees |
+| OPS | `0xb2ADb5734803379f64f8117931e812Ebd3a00d96` | ~22 | Keeper, Transak credits, "Get test MON" |
+| STORE | `0x27dd67D92c1754D3F30b9D7965D8Cf6cf2B3D0be` | ~0 | DemoStore payout address; only receives |
+
+**Monad reserve rule (tested):** a normal wallet below 10 MON can't send money transfers back to back (2 of 3 failed in our test). Single transfers work, and contracts are exempt. So the owner sends one transaction per action, the vault makes every payment, and AGENT and OPS stay above 10 MON. The UI warns owners who are below 10 MON.
+
+**Demo amounts** stay small so our MON lasts: chargers cost 0.4–1.2 MON, a typical budget is 0.8 MON, and a price-check call costs 0.001 MON.
+
+## 1. Repo layout (one npm workspace)
 
 ```
-contracts/   Foundry: TestUSDC.sol, TaskPayVault.sol, tests, deploy script
-packages/sdk/ shared TS: ABIs, addresses per chain, viem clients, draft/question logic, timeline merge
-mcp/         MCP server + `taskpay` CLI (Node, @modelcontextprotocol/sdk 1.32, viem 2.57)
-web/         Next.js 16 app: dashboard, approve page, DemoStore, PriceCheck API, agent, keeper, Transak
-docs/        PRD, this plan, images
-vendor/      ERC-8004 reference sources + ABIs
+contracts/     Foundry: TaskPayVault.sol, tests, deploy script
+packages/sdk/  shared TypeScript: ABIs, addresses, drafts, TaskGuard, tx helper, timeline
+mcp/           MCP server + `taskpay` CLI
+web/           Next.js 16 app (wagmi 3, viem 2.57, Tailwind): dashboard, store, APIs
+scripts/       keeper-loop.sh
+docs/  vendor/  secrets/ (gitignored)
 ```
 
-Use a single npm workspace (`packages/sdk`, `mcp`, `web`). Don't add pnpm; npm is already installed.
+## 2. Contract: TaskPayVault (solc 0.8.28, OpenZeppelin 5.x)
 
-## 2. Contracts (Foundry, solc 0.8.28, OpenZeppelin 5.x)
+- **Money:** `token == address(0)` means native MON. `createMandate` and `increaseBudget` are `payable` and must receive exactly the amount. An ERC-20 mandate uses `transferFrom` instead. Payouts and refunds go through one internal `_send(token, to, amount)` with a reentrancy guard.
+- **Mandate fields:** owner, agent, token, agentId, budget, originalBudget, spent, perPaymentCap, expiry, purposeHash, draftId, status, frozen, blocked count, pendingTopUp, toppedUp, the pending step-up payment, windowStart/windowCount, logHash, lastHash.
 
-### TestUSDC
-- ERC-20 with 6 decimals, named `TaskPay Test USDC` / `tUSDC`.
-- `faucet()` mints 100 tUSDC to the caller, at most once per address per hour. This lets judges self-serve.
-- `mint(to, amount)` works only for addresses with `MINTER_ROLE`, which is OPS. Transak credits use it.
-
-### TaskPayVault
-
-```solidity
-enum Status { Open, Closed }
-struct Mandate {
-  address owner; address agent; IERC20 token; uint256 agentId;  // ERC-8004 id, 0 if none
-  uint128 budget; uint128 spent; uint128 perPaymentCap; uint64 expiry;
-  bytes32 purposeHash; bytes32 draftId; Status status; uint8 blocked;
-  uint128 pendingTopUp; bytes32 logHash;
-}
-struct Entry { uint8 kind; uint128 amount; address counterparty; bytes32 ref; uint8 reason; uint64 at; }
-```
-
-| Function | Who | Rules |
+| Function | Caller | Rule |
 |---|---|---|
-| `createMandate(agent, token, budget, perPaymentCap, expiry, payees[], purposeHash, draftId, agentId)` | owner | Pulls `budget` with `transferFrom` and records the payees. `draftId` lets the MCP server and web app find the mandate they drafted. |
-| `pay(id, payee, amount, ref) returns (bool)` | agent | **Reverts only** if the caller isn't the agent. Any other failure records a `Blocked` entry with a reason code and returns false. |
-| `requestTopUp(id, amount, ref)` | agent | Sets `pendingTopUp` and records an entry. At most one pending request at a time. |
-| `increaseBudget(id, amount)` | owner | Pulls `amount` and clears `pendingTopUp`. `declineTopUp(id)` clears it without adding money. |
-| `close(id, logHash)` | owner or agent | Refunds `budget - spent` to the owner, stores `logHash`, gives ERC-8004 feedback. |
-| `reclaimExpired(id)` | anyone | Requires `block.timestamp > expiry`. Refunds the owner. |
-| `setFrozen(agent, bool)` / `freezeAndRefund(agent)` | owner | Freeze applies per owner and agent pair. `freezeAndRefund` closes all of that owner's open mandates for the agent. |
-| `getHistory(id)`, `getMandate(id)`, `mandatesOf(owner)`, `mandatesOfAgent(agent)`, `findByDraft(draftId)`, `openExpired(max)` | view | Feed the timeline, polling and the keeper. Keep an `openIds` array with swap-and-pop removal. |
+| `createMandate(agent, token, budget, perPaymentCap, expiry, payees[], purposeHash, draftId, agentId)` | owner (payable) | Locks the budget and stores the payees |
+| `pay(id, payee, amount, ref) returns (bool)` | agent | Reverts only for a non-agent caller. Any other failure records a `Blocked` entry with a reason and returns false. |
+| `requestApproval(id, payee, amount, ref)` / `confirmPayment(id)` / `rejectPayment(id)` | agent / owner / owner | TaskGuard step-up. The rules are re-checked at confirmation. |
+| `requestTopUp(id, amount, ref)` / `increaseBudget(id)` (payable) / `declineTopUp(id)` | agent / owner / owner | One pending top-up at a time; all top-ups together may add at most 50% of `originalBudget` |
+| `close(id, logHash)` | owner or agent | Refunds the rest to the owner, stores `logHash`, gives ERC-8004 feedback (inside try/catch) |
+| `reclaimExpired(id)` | anyone | Only after expiry; the money still goes only to the owner |
+| `setFrozen(agent, bool)` / `freezeAndRefund(agent)` | owner | Per owner and agent pair |
+| `getMandate`, `getHistory`, `mandatesOf`, `mandatesOfAgent`, `findByDraft`, `openExpired(max)` | view | Feed the timeline, polling and the keeper |
 
-- **Reason codes:** `1 NOT_OPEN, 2 EXPIRED, 3 FROZEN, 4 MERCHANT_NOT_ALLOWED, 5 OVER_PAYMENT_CAP, 6 OVER_BUDGET`.
-- **Fee:** `feeBps` (deploy with 50 = 0.5%), sent to `treasury`. The merchant receives the full amount, and the fee comes out of the mandate's budget, so the budget check covers `amount + fee`. This makes the revenue model visible in the demo.
-- **ERC-8004 feedback in `close`:** wrap the call in `try/catch` so a failure never blocks a refund. Call `giveFeedback(agentId, value, 0, "taskpay", tag2, "", "", logHash)` with `value = 100` and `tag2 = "completed"` if nothing was blocked, otherwise `value = 0` and `tag2 = "blocked"`. The vault calls it as the client, which works because the agent's owner (the agent key) isn't allowed to rate its own agent.
-- **Events** are emitted for every entry type. The timeline reads `getHistory` instead of scanning logs, because the testnet RPC only returns logs from the last 100 blocks.
-- **Tests (forge):** happy path with refund; each block reason; top-up approve and decline; expiry reclaim by a stranger; `freezeAndRefund`; fee math; a revert when a non-agent calls `pay`.
-- **Deploy:** `forge script` with DEPLOYER on chain 10143. Then verify through the Monskills verification API (`agents.devnads.com/v1/verify`), which covers 25 rubric points. Write the addresses to `packages/sdk/src/addresses.json`.
-- **Gas:** Monad charges for the gas *limit*, not the gas used. Estimate gas and add at most 10%; never use fixed large limits.
+- **On-chain TaskGuard:**
+  - A mandate freezes itself after 3 blocked attempts.
+  - At most 20 payments per 60 s per mandate.
+  - History entries are hash-chained: `lastHash = keccak256(lastHash, entry)`.
+- **Fee:** 0.5% (`feeBps = 50`), taken from the budget and sent to the treasury (DEPLOYER). The store receives the full amount.
+- **Reason codes:** NOT_OPEN, EXPIRED, FROZEN, MERCHANT_NOT_ALLOWED, OVER_PAYMENT_CAP, OVER_BUDGET, VELOCITY.
+- **ERC-8004 feedback on close:** `giveFeedback(agentId, 100 or 0, 0, "taskpay", "completed"/"blocked", "", "", logHash)`. The vault is the client, which is allowed because it isn't the agent's owner.
+- **Tests:** happy path with refund; each block reason; auto-freeze; top-up approve, decline and cap; stranger reclaim after expiry; `freezeAndRefund`; fee math; hash chain; reentrancy on refund.
+- **Deploy and verify:** `forge script` with DEPLOYER on 10143. Verify through `agents.devnads.com/v1/verify` (see `.claude/skills/scaffold/SKILL.md`), with Sourcify as the fallback. Write the address into `packages/sdk/src/addresses.json`. Monad charges for the gas *limit*, so set tight limits (`.claude/skills/gas/SKILL.md`).
 
 ## 3. Shared SDK (`packages/sdk`)
 
-- `chains.ts`: Monad testnet (10143) and mainnet (143), with per-chain addresses for TaskPayVault, TestUSDC and the ERC-8004 registries.
-- `draft.ts`: draft schema `{store, items, budget, perPaymentCap, expiryMins, payees[{name, address}], purpose}` plus `missingFields(draft)`, which returns at most 3 questions with suggested answers (PRD "Follow-up questions"). `purposeHash = keccak256(canonical JSON)`.
-- `merchants.ts`: `resolveMerchant(domain)` fetches `https://<domain>/.well-known/taskpay.json` → `{name, category, payTo, priceRange}`.
-- `approve-link.ts`: `encodeDraft(draft) → /approve#<base64url>`. The draft travels in the URL fragment, so no server stores it.
-- `timeline.ts`: merges `getHistory` entries with local log entries and formats them as the PRD's timeline lines, with explorer links (`https://testnet.monadscan.com/tx/<hash>`).
-- `tx.ts`: sends transactions through Monad's `eth_sendRawTransactionSync` (viem `sendTransactionSync` if this version has it, otherwise sign and call the RPC method directly) and measures the time to receipt for the "settled in 0.7 s" badge. Fall back to `sendTransaction` + `waitForTransactionReceipt`.
+- `addresses.json`, ABIs (from forge output + `vendor/erc-8004/abis`), chain config.
+- `draft.ts`: the draft schema, `missingFields()` (at most 3 questions with suggested answers), `purposeHash`, `encodeDraft`/`decodeDraft` for the approve link.
+- `merchants.ts`: reads and validates the store's `/.well-known/taskpay.json`.
+- `guard.ts` (TaskGuard, off-chain):
+  - a quarantine wrapper for untrusted content;
+  - an injection detector (regex rules + address/payment-verb check, escalating to Gemini);
+  - `riskScore()`: intent 30 + amount z-score 20 + injection exposure 30 + merchant trust 10 + velocity 10. Below 30 pays, 30–60 needs owner step-up, above 60 is blocked, with reasons.
+- `tx.ts`: sends through `eth_sendRawTransactionSync` and measures the settle time, falling back to `waitForTransactionReceipt`.
+- `timeline.ts`: merges on-chain history and the local log, adds explorer links, exports CSV.
 
-## 4. MCP server and CLI (`mcp/`)
+## 4. MCP server + CLI (`mcp/`, @modelcontextprotocol/sdk 1.32)
 
-- **Tools:** `request_mandate`, `get_mandate`, `pay`, `request_topup`, `close_mandate`, `list_mandates`. The input and output shapes are in the PRD.
-- `request_mandate({task, store?, budget?, answers?})`:
-  1. Resolves the store's `.well-known` file.
-  2. Runs `missingFields`. If anything is missing, it returns `{status:"needs_info", questions}` and the client model asks the user.
-  3. Otherwise it returns `{status:"ready", card, approveUrl}` and then polls `findByDraft(draftId)` every 2 s, for up to 5 minutes, until the owner approves in the web app.
-- **Agent key:** created on first run at `~/.taskpay/agent.json` (file mode 600). On first use it calls `IdentityRegistry.register(string agentURI)` with a `data:` JSON agent card and caches the `agentId`.
-- **Step log:** append to `~/.taskpay/logs/<mandateId>.jsonl`. `close_mandate` hashes the file and passes the hash to `close`.
-- **CLI (`npx taskpay …`):** `status`, `timeline <id>`, `attack <id>` (pays a random address with the agent key, so the block shows up on-chain), `reclaim <id>`.
-- **Install:** `claude mcp add taskpay -- node /abs/path/mcp/dist/index.js`. Test it in Claude Code first, as decided.
+- **Tools:**
+  - `request_mandate`: returns either `needs_info` questions, or a card + approve link, then polls `findByDraft`.
+  - `get_mandate`.
+  - `pay`: runs TaskGuard, then pays, requests approval, or refuses.
+  - `request_topup`, `close_mandate`, `list_mandates`.
+- **Agent key:** `~/.taskpay/agent.json`, registered in the ERC-8004 IdentityRegistry on first run. It needs MON, so the CLI prints the address to fund, or claims "Get test MON".
+- **Step log:** `~/.taskpay/logs/<id>.jsonl`; its hash is sent with `close`.
+- **CLI:** `taskpay status | timeline <id> | attack <id> | reclaim <id> | approve <draft>`. `approve` uses a local test owner key so the flow can be tested without a browser.
+- **Install:** `claude mcp add taskpay -- node <abs>/mcp/dist/index.js`, tested in Claude Code first.
 
-## 5. Web app (`web/`, Next.js 16, wagmi 3, viem, Tailwind)
+## 5. Web app (`web/`)
 
-| Route | What it does |
+| Route | Purpose |
 |---|---|
-| `/` | Connect MetaMask (Monad testnet), show tUSDC balance, **Get 100 tUSDC** (faucet) and **Add funds by card** (Transak) buttons, list of tasks. |
-| `/agent` | Chat with the web agent. Shows follow-up questions as tap buttons, the mandate card and a **compromised agent** switch. |
-| `/approve#…` | Decodes the draft, re-resolves the merchant, shows the card. Approve runs `approve` and then `createMandate` from the owner's wallet. |
-| `/mandate/[id]` | Timeline (on-chain plus localStorage), Cancel, Reclaim, Approve/Decline top-up, Freeze and refund, CSV export. Reclaims automatically if the mandate has expired. |
-| `/store`, `/store/[sku]` | DemoStore catalogue, about 5 chargers and cables priced 3–12 tUSDC. One product review contains the injection text. A "surge price" toggle exists for the top-up demo. |
-| `/.well-known/taskpay.json` | DemoStore identity: `payTo` is a fixed DemoStore address (generate one, no key needed). |
-| `/api/store/quote` | `{sku, qty} → {orderId, amount, payTo, network}`, x402-style. `/api/store/paid` marks an order paid after checking the payment entry on-chain. |
-| `/api/pricecheck` | Pay-per-call API: responds 402 unless a valid `pay` ref for 0.01 tUSDC is present. |
-| `/api/agent` | Server-side agent loop. Calls Claude Sonnet through LiteLLM (`LITELLM_URL`, `LITELLM_KEY`) with tools (search store, quote, pricecheck, pay, request_topup, close), signs with `AGENT_PRIVATE_KEY`, streams steps to the client, and the client saves them in localStorage. In compromised mode, it follows any instruction found in a review. |
-| `/api/onramp/session`, `/api/onramp/verify` | Transak flow from the PRD: create the widget URL with `partnerOrderId`, then check `COMPLETED` and the amount, then mint tUSDC with OPS, at most once per orderId. |
-| `/api/keeper?key=…` | Reads `openExpired(20)` and calls `reclaimExpired` for each one with OPS. cron-job.org calls it every minute. |
+| `/` | Connect MetaMask, MON balance (with a below-10 warning), **Buy MON with card** (Transak), **Get test MON**, task list |
+| `/agent` | Gemini agent chat: tap-to-answer follow-ups, TaskGuard risk badges, **compromised agent** switch (turns off layers 1–3 to show the contract still blocks) |
+| `/approve#draft` | Shows the card; one MetaMask confirmation: `createMandate{value}` |
+| `/mandate/[id]` | Timeline, top-up / step-up confirm, cancel, reclaim, freeze-and-refund, CSV export |
+| `/store` | DemoStore: about 5 chargers/cables, one poisoned review, surge-price toggle |
+| `/.well-known/taskpay.json`, `/api/store/quote`, `/api/store/paid` | Merchant identity, x402-style quote, paid check |
+| `/api/pricecheck` | Returns 402 unless a 0.001 MON payment is shown |
+| `/api/agent` | Gemini tool loop signed with `AGENT_PRIVATE_KEY`; streams steps (the browser saves them in localStorage) |
+| `/api/onramp/session` | Transak: refresh-token (`api-secret`) → session (`access-token`, `x-api-key`, `x-user-ip`) → widget URL |
+| `/api/onramp/verify` | Checks the order is `COMPLETED` and the amount matches, then OPS sends ≤1 MON, once per order |
+| `/api/faucet` | OPS sends 1 MON once per wallet per day (backup for Transak) |
+| `/api/keeper?key=` | `openExpired(20)` → `reclaimExpired` from OPS |
 
-- **Env (Vercel):** `AGENT_PRIVATE_KEY`, `OPS_PRIVATE_KEY`, `KEEPER_SECRET`, `LITELLM_URL`, `LITELLM_KEY`, `TRANSAK_API_KEY`, `TRANSAK_API_SECRET`, `NEXT_PUBLIC_CHAIN_ID=10143`.
-- **localStorage keys:** `taskpay:log:<chainId>:<mandateId>`. Add an Export JSON button.
+## 6. Schedule
 
-## 6. Schedule (2 people)
+| Time | Work |
+|---|---|
+| Go → +45 min | Vault contract and tests, deploy and verify on testnet |
+| +45 → +1h30 | SDK (draft, guard, tx, timeline) and MCP server + CLI; tested in Claude Code against testnet |
+| +1h30 → +2h45 | Web app: approve, timeline, store, agent (Gemini), faucet, keeper |
+| +2h45 → +3h15 | Transak (session, widget, verify, send MON) |
+| +3h15 → 17:00 | Vercel deploy (env from `secrets/`), subdomain, keeper loop, README; hand a screen recording to the build-in-public friend |
+| 17:00–17:25 | Fix bugs only. Run the README from a fresh browser. Push. |
+| 17:25–17:45 | Freeze and submit (repo, live URL, contract address, network) |
 
-| Time | Person A: chain + agent | Person B: web + product |
-|---|---|---|
-| 12:30–13:00 | Scaffold `contracts/`, write TestUSDC and the core of TaskPayVault | Scaffold the npm workspace and Next.js app, set up wagmi with Monad testnet, build the DemoStore pages and `.well-known` |
-| 13:00–14:00 | Lunch (keep forge tests running if you can) | Lunch |
-| 14:00–14:45 | Finish the vault and tests, deploy and verify on testnet, fill in `addresses.json` | `packages/sdk` (draft, questions, approve link, timeline), `/approve` page with `createMandate` |
-| 14:45–15:45 | MCP server: all tools, agent key, ERC-8004 register, step log, CLI `attack`. Test end to end in Claude Code | `/mandate/[id]` timeline + top-up/freeze/reclaim buttons, quote/pricecheck APIs |
-| 15:45–16:30 | `/api/agent` with LiteLLM + compromised mode, keeper endpoint + cron-job.org | Transak session/verify/mint, faucet button, receipt timer badge |
-| 16:30–17:00 | Deploy to Vercel, set env, subdomain, run a full happy path + attack + top-up on the live URL | README (rubric items), screen-record the demo for the build-in-public friend |
-| 17:00–17:25 | Fix bugs only. A teammate follows the README from a fresh browser to confirm "runs without help" | Same |
-| 17:25 | Push the final code. Freeze at 17:30 | Submit on the Devnads portal before 17:45 with repo, live URL, contract addresses |
+**Cut order if late:** pay-per-call → ERC-8004 feedback → step-up confirm → keeper loop (keep the Reclaim button) → MCP polling. If Transak breaks, the "Get test MON" button stays. **Never cut:** lock → pay → blocked attack → top-up → close and refund, live on testnet.
 
-**Cut order if we're late:** Transak → pay-per-call API → ERC-8004 feedback → keeper cron (keep the Reclaim button) → MCP polling (keep a manual "paste mandate id"). **Never cut:** create → pay → blocked attack → top-up → close and refund, live on testnet. Only announce what made it in.
+## 7. Verification
 
-## 7. Rubric checklist
+- `forge test -vv` passes. After deploy, `cast call getMandate/getHistory` works and the contract shows as verified on the explorer.
+- **CLI on testnet:** draft → `taskpay approve` → `pay` → `taskpay attack` is blocked (MERCHANT_NOT_ALLOWED) → 3 attacks freeze the mandate → top-up → close refunds the owner (check balances) → a 2-minute expiry is reclaimed by the keeper.
+- **MCP in Claude Code:** "buy a charger" → follow-ups → approve link → payment → refund.
+- **Web with MetaMask:** Transak test card → MON arrives → agent task → one confirmation → payment → compromised attack blocked on-chain → top-up → refund, with explorer links in the timeline.
+- A teammate runs it from the README in a fresh browser profile.
 
-- [ ] Public GitHub repo with a README: one-line description, setup steps, live URL, contract addresses, network (Monad testnet 10143)
-- [ ] Contracts deployed on testnet **and verified** on the explorer
-- [ ] Hosted on Vercel at the subdomain (custom domain is worth 15 bonus points)
-- [ ] Every announced feature works, with a live transaction during the demo
-- [ ] README lets a stranger run it: MetaMask → Get tUSDC → give a task → approve
-- [ ] Build in public (the friend handles it): X/LinkedIn post tagging @monad @monad_dev @geeky_kartikey, demo video, ad video, 5K views by 17:45
-- [ ] Optional: mainnet deploy (+25), ask before spending real MON
-- [ ] In the pitch, say the repo link, contract address, live URL and network out loud
+## 8. Rubric checklist
 
-## 8. Known risks
-
-- **Testnet RPC limits.** `eth_getLogs` only covers 100 blocks, hence on-chain history arrays. If the public RPC rate-limits us, add a second RPC from `.claude/skills/tooling-and-infra`.
-- **Vercel and the local gateway.** The LiteLLM tunnel URL changes each time it restarts, so update `LITELLM_URL` in Vercel whenever that happens.
-- **Transak sandbox.** It may block Indian IPs or the KYC flow may stall. Fall back to Crossmint staging, and keep the "Get 100 tUSDC" button either way.
-- **Expiry demo.** Use a 2-minute expiry so reclaim can be shown live.
+- [ ] Public repo + README (description, setup, live URL, contract address, network)
+- [ ] Contract on testnet, verified
+- [ ] Hosted on Vercel at a subdomain (+15)
+- [ ] Every announced feature works; a live transaction during the demo
+- [ ] Runs from the README without help
+- [ ] Build in public: handled by the friend (posts tag @monad @monad_dev @geeky_kartikey, demo video, ad video, 5K views by 17:45)
+- [ ] Optional: mainnet deploy (+25), ask first
+- [ ] In the pitch, say the repo, contract address, live URL and network out loud
