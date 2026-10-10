@@ -10,3 +10,8 @@ broadcast/*/31337/
 .DS_Store
 secrets/
 .tmp/
+web/.next/
+web/next-env.d.ts
+web/AGENTS.md
+contracts/out/
+contracts/cache/
